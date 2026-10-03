@@ -1,0 +1,406 @@
+/* ============================================================
+   Element Plus 主题映射
+   控件词汇表保持平台标准，只把颜色、字体、圆角、密度换成
+   卡片目录的语汇。
+   ============================================================ */
+:root {
+  --el-color-primary: var(--stamp);
+  --el-color-primary-light-3: #5fa5c3;
+  --el-color-primary-light-5: #8dbfd4;
+  --el-color-primary-light-7: #bad8e5;
+  --el-color-primary-light-8: #d1e5ee;
+  --el-color-primary-light-9: #e8f2f6;
+  --el-color-primary-dark-2: var(--stamp-deep);
+
+  --el-color-success: var(--ok);
+  --el-color-success-light-9: var(--ok-wash);
+  --el-color-warning: var(--warn);
+  --el-color-warning-light-9: var(--warn-wash);
+  --el-color-danger: var(--danger);
+  --el-color-danger-light-9: var(--danger-wash);
+  --el-color-error: var(--danger);
+  --el-color-info: var(--info);
+  --el-color-info-light-9: var(--info-wash);
+
+  --el-text-color-primary: var(--ink);
+  --el-text-color-regular: var(--ink-2);
+  --el-text-color-secondary: var(--ink-3);
+  --el-text-color-placeholder: var(--ink-4);
+  --el-text-color-disabled: var(--ink-4);
+  --el-text-color-primary-inverse: var(--card);
+
+  --el-border-color: var(--rule-strong);
+  --el-border-color-light: var(--rule);
+  --el-border-color-lighter: var(--rule);
+  --el-border-color-extra-light: var(--rule);
+  --el-border-color-dark: var(--rule-strong);
+  --el-border-color-darker: var(--ink-4);
+
+  --el-fill-color: var(--paper-sunk);
+  --el-fill-color-light: var(--paper-sunk);
+  --el-fill-color-lighter: var(--paper);
+  --el-fill-color-extra-light: var(--paper);
+  --el-fill-color-dark: var(--rule);
+  --el-fill-color-darker: var(--rule-strong);
+  --el-fill-color-blank: var(--card);
+
+  --el-bg-color: var(--card);
+  --el-bg-color-page: var(--paper);
+  --el-bg-color-overlay: var(--card);
+
+  --el-font-family: var(--font-ui);
+  --el-font-size-base: var(--fs-base);
+  --el-border-radius-base: var(--radius);
+  --el-border-radius-small: var(--radius-sm);
+  --el-border-radius-round: 999px;
+
+  --el-box-shadow: 0 1px 0 rgba(18, 33, 43, 0.05), 0 10px 26px -14px rgba(18, 33, 43, 0.3);
+  --el-box-shadow-light: 0 1px 0 rgba(18, 33, 43, 0.05), 0 6px 18px -12px rgba(18, 33, 43, 0.26);
+  --el-box-shadow-lighter: 0 1px 0 rgba(18, 33, 43, 0.04), 0 4px 12px -8px rgba(18, 33, 43, 0.22);
+  --el-box-shadow-dark: 0 2px 0 rgba(18, 33, 43, 0.06), 0 18px 44px -18px rgba(18, 33, 43, 0.36);
+
+  --el-disabled-bg-color: var(--paper-sunk);
+  --el-disabled-text-color: var(--ink-4);
+  --el-disabled-border-color: var(--rule);
+
+  --el-table-border-color: var(--rule);
+  --el-table-border: 1px solid var(--rule);
+  --el-table-text-color: var(--ink-2);
+  --el-table-header-text-color: var(--ink-3);
+  --el-table-row-hover-bg-color: var(--stamp-wash);
+  --el-table-current-row-bg-color: var(--stamp-wash);
+  --el-table-header-bg-color: var(--paper-sunk);
+  --el-table-fixed-box-shadow: none;
+  --el-table-bg-color: var(--card);
+  --el-table-tr-bg-color: transparent;
+  --el-table-expanded-cell-bg-color: var(--paper);
+  --el-table-expanded-cell-padding: 0;
+}
+
+/* --- 焦点：用 outline 描边，不用 Element 的柔光晕 ------------ */
+:root {
+  --el-input-focus-border-color: var(--stamp);
+}
+
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper {
+  box-shadow: 0 0 0 1px var(--rule-strong) inset !important;
+  background-color: var(--card);
+  border-radius: var(--radius);
+}
+
+.el-input__wrapper.is-focus,
+.el-textarea__inner:focus,
+.el-select__wrapper.is-focused {
+  box-shadow: 0 0 0 1px var(--stamp) inset !important;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused {
+  outline: 2px solid var(--stamp-wash);
+  outline-offset: 1px;
+}
+
+/* --- 按钮 --------------------------------------------------- */
+.el-button {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--stamp);
+  --el-button-border-color: var(--stamp);
+  --el-button-hover-bg-color: var(--stamp-deep);
+  --el-button-hover-border-color: var(--stamp-deep);
+  --el-button-active-bg-color: var(--stamp-deep);
+  --el-button-active-border-color: var(--stamp-deep);
+  --el-button-disabled-bg-color: var(--paper-sunk);
+  --el-button-disabled-border-color: var(--rule-strong);
+  --el-button-disabled-text-color: var(--ink-4);
+}
+
+.el-button--default {
+  --el-button-bg-color: var(--card);
+  --el-button-border-color: var(--rule-strong);
+  --el-button-hover-bg-color: var(--paper-sunk);
+  --el-button-hover-border-color: var(--ink-4);
+  --el-button-hover-text-color: var(--ink);
+}
+
+/* --- 表格：卡片横线，无竖线，表头小字加宽字距 ---------------- */
+.el-table {
+  --el-table-header-text-color: var(--ink-3);
+  font-variant-numeric: tabular-nums lining-nums;
+  background-color: transparent;
+}
+
+.el-table th.el-table__cell {
+  background-color: var(--paper-sunk) !important;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-3);
+  height: calc(var(--row-h) - 4px);
+  padding: 0;
+}
+
+.el-table td.el-table__cell {
+  padding: var(--pad-cell);
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  font-size: var(--fs-table);
+  line-height: var(--lh-snug);
+}
+
+.el-table .el-table__row {
+  height: var(--row-h);
+}
+
+.el-table__body tr:hover > td.el-table__cell {
+  background-color: var(--stamp-wash) !important;
+}
+
+.el-table::before,
+.el-table--border::after,
+.el-table__inner-wrapper::before {
+  display: none;
+}
+
+.el-table__empty-block {
+  background: transparent;
+}
+
+.el-table__expanded-cell {
+  padding: 0 !important;
+  background: var(--paper) !important;
+}
+
+/* --- 标签：方形小签，不是胶囊 ------------------------------- */
+.el-tag {
+  --el-tag-border-radius: var(--radius-sm);
+  font-weight: 500;
+  border-width: 1px;
+  padding: 0 6px;
+  height: 20px;
+  line-height: 18px;
+  font-size: var(--fs-xs);
+}
+
+/* --- 分页、下拉、对话框 ------------------------------------- */
+.el-pagination {
+  --el-pagination-button-bg-color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+.el-pagination.is-background .el-pager li,
+.el-pagination.is-background .btn-prev,
+.el-pagination.is-background .btn-next {
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.el-pagination.is-background .el-pager li.is-active {
+  background: var(--stamp);
+  color: #fff;
+}
+
+.el-select-dropdown__item.is-selected {
+  color: var(--stamp-deep);
+  font-weight: 600;
+}
+
+.el-dialog {
+  --el-dialog-border-radius: var(--radius);
+  border: 1px solid var(--card-edge);
+  padding: 0;
+}
+
+.el-dialog__header {
+  margin: 0;
+  padding: var(--s5) var(--s5) var(--s3);
+  border-bottom: 1px solid var(--rule);
+}
+
+.el-dialog__body {
+  padding: var(--s5);
+}
+
+.el-drawer__header {
+  margin-bottom: 0;
+  padding: var(--s5);
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.el-drawer__body {
+  padding: var(--s5);
+}
+
+/* --- 其它 --------------------------------------------------- */
+.el-divider {
+  --el-border-color: var(--rule);
+}
+
+.el-alert {
+  --el-alert-border-radius: var(--radius);
+  padding: var(--s3) var(--s4);
+}
+
+.el-checkbox__label,
+.el-radio__label {
+  font-size: var(--fs-base);
+}
+
+.el-switch.is-checked .el-switch__core {
+  background-color: var(--stamp);
+  border-color: var(--stamp);
+}
+
+.el-progress-bar__outer {
+  background-color: var(--paper-sunk);
+  border-radius: var(--radius-sm);
+}
+
+.el-progress-bar__inner {
+  border-radius: var(--radius-sm);
+}
+
+.el-skeleton__item {
+  background: linear-gradient(90deg, var(--paper-sunk) 25%, var(--paper) 37%, var(--paper-sunk) 63%);
+  border-radius: var(--radius-sm);
+}
+
+.el-empty__description p {
+  color: var(--ink-3);
+}
+
+.el-tooltip__popper,
+.el-popper.is-dark {
+  --el-bg-color-overlay: var(--cabinet-2);
+  --el-text-color-primary: var(--cabinet-ink);
+  border-color: var(--cabinet-3);
+}
+
+/* ============================================================
+   控件细节：把 Element 的柔光与厚滑块收成卡片目录的分量
+   ============================================================ */
+.el-button--primary.is-disabled,
+.el-button--primary.is-disabled:hover,
+.el-button--primary.is-disabled:focus {
+  background-color: var(--paper-sunk);
+  border-color: var(--rule-strong);
+  color: var(--ink-4);
+}
+
+/* 滑杆：一条细刻度线，不是一根红棒 */
+.el-slider__runway {
+  height: 3px;
+  margin: 14px 0;
+  background-color: var(--paper-sunk);
+  border-radius: 999px;
+}
+
+.el-slider__bar {
+  height: 3px;
+  background-color: var(--stamp);
+  border-radius: 999px;
+}
+
+.el-slider__button-wrapper {
+  top: -16px;
+  width: 20px;
+  height: 20px;
+}
+
+.el-slider__button {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--stamp);
+  background-color: var(--card);
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.el-slider__button-wrapper:hover .el-slider__button,
+.el-slider__button-wrapper.is-dragging .el-slider__button {
+  transform: scale(1.15);
+}
+
+/* 排序箭头：静止时安静，悬停或已排序时才出现 */
+.el-table th.el-table__cell .caret-wrapper {
+  width: 14px;
+  height: 20px;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.el-table th.el-table__cell:hover .caret-wrapper,
+.el-table th.el-table__cell.ascending .caret-wrapper,
+.el-table th.el-table__cell.descending .caret-wrapper {
+  opacity: 1;
+}
+
+.el-table th.el-table__cell .sort-caret.ascending,
+.el-table th.el-table__cell .sort-caret.descending {
+  border-width: 4px;
+}
+
+/* 展开箭头：小一号的指示符 */
+.el-table__expand-icon {
+  color: var(--ink-4);
+  font-size: 12px;
+}
+
+.el-table__expand-icon:hover {
+  color: var(--stamp);
+}
+
+/* 表格的横向滚动条常显：8 列数据在窄屏下必须能被发现 */
+.el-table .el-scrollbar__bar.is-horizontal {
+  height: 9px;
+  left: 2px;
+  right: 2px;
+  bottom: 1px;
+}
+
+.el-table .el-scrollbar__bar.is-horizontal > div {
+  background: var(--rule-strong);
+  opacity: 0.85;
+  border-radius: 999px;
+}
+
+.el-table .el-scrollbar__bar.is-horizontal > div:hover {
+  background: var(--ink-4);
+  opacity: 1;
+}
+
+.el-table .el-scrollbar__bar.is-vertical {
+  width: 9px;
+}
+
+.el-checkbox__input.is-checked .el-checkbox__inner {
+  background-color: var(--stamp);
+  border-color: var(--stamp);
+}
+
+.el-checkbox__label {
+  color: var(--ink-2);
+}
+
+.el-input-number.is-controls-right .el-input-number__increase,
+.el-input-number.is-controls-right .el-input-number__decrease {
+  background: var(--paper-sunk);
+  border-color: var(--rule);
+  color: var(--ink-3);
+}
+
+.el-tag {
+  --el-tag-bg-color: var(--paper-sunk);
+  --el-tag-border-color: var(--rule-strong);
+  --el-tag-text-color: var(--ink-2);
+}

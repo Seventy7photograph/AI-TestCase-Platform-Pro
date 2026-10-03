@@ -1,0 +1,120 @@
+/* ============================================================
+   设计令牌 —— 图书馆卡片目录
+   世界只出借四样东西：字体、色彩、密度，和一个招牌动作。
+   其余（布局、导航模型、控件）一律用平台的标准件。
+   ============================================================ */
+:root {
+  /* 卡纸与墨 ------------------------------------------------ *
+   * 纸面是阅览室的冷调纸白，横线是索引卡的蓝灰印线，       *
+   * 冰蓝只留给印章。                                       */
+  --paper: #eef2f5;
+  --paper-sunk: #e4eaf0;
+  --card: #ffffff;
+  --card-edge: #d5dfe7;
+  --rule: #d2dce4;
+  --rule-strong: #adbdc9;
+
+  --ink: #12212b;
+  --ink-2: #3f4f5b;
+  --ink-3: #4b5c68;
+  --ink-4: #5f6f7a;
+
+  /* 柜体：导航轨的深墨蓝 ----------------------------------- */
+  --cabinet: #13232d;
+  --cabinet-2: #1b2f3b;
+  --cabinet-3: #27404e;
+  --cabinet-ink: #e6eef3;
+  --cabinet-ink-2: #93a8b5;
+
+  /* 冰蓝印章：唯一强调色。主操作、当前选中、交叉索引 ------ */
+  --stamp: #1a7fa9;
+  --stamp-deep: #12607f;
+  --stamp-wash: #e2f1f8;
+
+  /* 状态语义（底色与墨成对出现） -------------------------- */
+  --ok: #2c6a4c;
+  --ok-wash: #dce8dd;
+  --warn: #8a6114;
+  --warn-wash: #f0e4cb;
+  --danger: #9d2a21;
+  --danger-wash: #f1dad6;
+  --info: #2b4a78;
+  --info-wash: #dce3ee;
+
+  /* 字体 --------------------------------------------------- */
+  --font-ui: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei",
+    "Source Han Sans SC", "Noto Sans CJK SC", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas,
+    "SFMono-Regular", Menlo, monospace;
+
+  /* 固定 rem 级数，比例 1.2 左右 --------------------------- */
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-base: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.1875rem;
+  --fs-xl: 1.4375rem;
+  --fs-2xl: 1.75rem;
+
+  --lh-tight: 1.24;
+  --lh-snug: 1.42;
+  --lh-base: 1.62;
+
+  --tracking-tight: -0.02em;
+  --tracking-label: 0.06em;
+
+  /* 3×5 卡片的行列节奏 ------------------------------------- */
+  --u: 4px;
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+
+  --radius: 4px;
+  --radius-sm: 2px;
+
+  /* 密度：一个控件重塑整个系统的节奏 ----------------------- */
+  --row-h: 38px;
+  --pad-card: var(--s5);
+  --pad-cell: 10px 12px;
+  --gap-stack: var(--s5);
+  --gap-grid: var(--s4);
+  --fs-table: var(--fs-sm);
+  --rail-w: 236px;
+  --topbar-h: 52px;
+
+  /* 动效：只编排一个瞬间 ----------------------------------- */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur: 220ms;
+  --dur-fast: 140ms;
+}
+
+html[data-density="compact"] {
+  --row-h: 32px;
+  --pad-card: var(--s4);
+  --pad-cell: 6px 10px;
+  --gap-stack: var(--s4);
+  --gap-grid: var(--s3);
+  --fs-table: var(--fs-xs);
+  --rail-w: 212px;
+}
+
+html[data-density="relaxed"] {
+  --row-h: 46px;
+  --pad-card: var(--s6);
+  --pad-cell: 14px 16px;
+  --gap-stack: var(--s6);
+  --gap-grid: var(--s5);
+  --fs-table: var(--fs-base);
+  --rail-w: 248px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur: 1ms;
+    --dur-fast: 1ms;
+  }
+}

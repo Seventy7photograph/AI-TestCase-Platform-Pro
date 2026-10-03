@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI 测试用例生成助手 V1.0</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; background: #f5f7fa; color: #1f2d3d; }
+  header { background: linear-gradient(120deg, #1f4e79, #2f6fa8); color: #fff; padding: 18px 24px; }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: 1px; }
+  header p { margin: 6px 0 0; font-size: 13px; opacity: .85; }
+  main { max-width: 1280px; margin: 18px auto 60px; padding: 0 16px; }
+  .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(31,45,61,.08); padding: 18px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 15px; color: #1f4e79; }
+  textarea { width: 100%; min-height: 170px; padding: 10px; font-size: 13px; border: 1px solid #dcdfe6; border-radius: 6px; resize: vertical; font-family: inherit; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 12px; }
+  label.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+  button { border: 0; border-radius: 6px; padding: 9px 18px; font-size: 14px; cursor: pointer; }
+  .primary { background: #1f4e79; color: #fff; }
+  .primary[disabled] { background: #9db4c8; cursor: not-allowed; }
+  .ghost { background: #eef2f7; color: #1f4e79; }
+  .banner { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; }
+  .banner.warn { background: #fdf6ec; color: #b88230; border: 1px solid #f5dab1; }
+  .banner.ok { background: #eef7ee; color: #3d8b3d; border: 1px solid #cbe6cb; }
+  .banner.err { background: #fdeeee; color: #c0392b; border: 1px solid #f5c6c6; }
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .stat { background: #f0f4f9; border-radius: 8px; padding: 8px 14px; font-size: 13px; }
+  .stat b { color: #1f4e79; font-size: 16px; margin-left: 6px; }
+  .table-wrap { max-height: 560px; overflow: auto; border: 1px solid #e4e8ee; border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; background: #fff; }
+  th, td { border-bottom: 1px solid #eef1f5; padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f7f9fc; position: sticky; top: 0; z-index: 1; color: #44546a; font-weight: 600; }
+  td.pre { white-space: pre-wrap; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; background: #eef2f7; color: #44546a; margin-right: 4px; }
+  .p0 { background: #ffc7ce; color: #9c1c1c; } .p1 { background: #ffeb9c; color: #8a6d1d; }
+  .p2 { background: #e2efda; color: #3d6b34; } .p3 { background: #f2f2f2; color: #666; }
+  .muted { color: #8492a6; font-size: 12px; }
+  ul.warn-list { margin: 8px 0 0; padding-left: 20px; font-size: 12.5px; color: #8a6d1d; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AI 测试用例生成助手 · V1.0</h1>
+  <p>需求文档 → 结构化需求 → 等价类 / 边界值 / 场景法 → 用例去重 → Excel 导出</p>
+</header>
+<main>
+  <div id="status" class="banner ok">正在检测服务状态…</div>
+
+  <div class="card">
+    <h2>1. 输入需求</h2>
+    <div class="row">
+      <input type="file" id="file" accept=".docx,.pdf,.txt,.md,.csv,.json" />
+      <span class="muted">支持 docx / pdf / txt / md / csv / json；从 Word/网页复制粘贴时，表格请保留 Tab 或 Markdown 列分隔，否则字段约束可能丢失</span>
+    </div>
+    <textarea id="text" placeholder="在此粘贴需求文本，例如：&#10;## 用户注册&#10;手机号：11位数字，必填&#10;年龄：18~120&#10;| 字段名 | 类型 | 必填 | 取值范围 | 说明 |&#10;| 昵称 | 字符串 | 是 | 2-20位 | 用户昵称 |"></textarea>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="mEq" checked /> 等价类划分</label>
+      <label class="chk"><input type="checkbox" id="mBv" checked /> 边界值分析</label>
+      <label class="chk"><input type="checkbox" id="mSc" checked /> 场景法</label>
+      <label class="chk"><input type="checkbox" id="useLlm" checked /> 使用大模型辅助解析</label>
+      <label class="chk"><input type="checkbox" id="useLlmInDesign" /> 生成阶段也调用大模型</label>
+      <button class="primary" id="runBtn">一键生成用例</button>
+      <button class="ghost" id="exportBtn" disabled>导出 Excel</button>
+    </div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <h2>2. 生成结果</h2>
+    <div class="stats" id="stats"></div>
+    <p class="muted" id="statsNote"></p>
+    <div id="warnBox"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>用例编号</th><th>模块</th><th>标题</th><th>方法</th><th>覆盖方法</th><th>类型</th><th>优先级</th><th>测试数据</th><th>预期结果</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="muted" id="tableNote"></p>
+  </div>
+</main>
+
+<script>
+const API = "/api/v1";
+let currentSuiteId = null;
+
+function el(id) { return document.getElementById(id); }
+function banner(kind, text) { const box = el("status"); box.className = "banner " + kind; box.textContent = text; }
+
+async function api(path, options) {
+  const res = await fetch(API + path, options);
+  let body = null;
+  try { body = await res.json(); } catch (e) { body = null; }
+  if (!res.ok || (body && body.success === false)) {
+    const msg = body && body.message ? body.message : ("请求失败：HTTP " + res.status);
+    const detail = body && body.detail ? JSON.stringify(body.detail) : "";
+    throw new Error(msg + (detail ? " | " + detail : ""));
+  }
+  return body ? body.data : null;
+}
+
+async function init() {
+  try {
+    const health = await api("/health");
+    const methods = (health.methods || []).filter(m => m.implemented).map(m => m.label).join(" / ");
+    const fmts = (health.export_formats || []).map(f => f.label).join(" / ");
+    if (health.llm_available) {
+      banner("ok", `服务正常 | LLM：${health.llm_provider}(${health.llm_model}) | 设计方法：${methods} | 导出：${fmts}`);
+    } else {
+      banner("warn", `服务正常，但当前为纯规则引擎模式（${health.llm_degraded_reason || "未配置 LLM_API_KEY"}）。规则引擎可完整跑通链路，配置密钥后可获得更强的需求理解能力。`);
+    }
+  } catch (e) {
+    banner("err", "无法连接后端服务：" + e.message);
+  }
+}
+
+async function uploadIfNeeded() {
+  const file = el("file").files[0];
+  if (!file) return null;
+  const form = new FormData();
+  form.append("file", file);
+  const doc = await api("/documents/upload", { method: "POST", body: form });
+  return doc.doc_id;
+}
+
+async function generate() {
+  const btn = el("runBtn");
+  btn.disabled = true; btn.textContent = "生成中…";
+  try {
+    const docId = await uploadIfNeeded();
+    const text = el("text").value.trim();
+    if (!docId && !text) { throw new Error("请上传文档或粘贴需求文本。"); }
+    const methods = [];
+    if (el("mEq").checked) methods.push("equivalence");
+    if (el("mBv").checked) methods.push("boundary");
+    if (el("mSc").checked) methods.push("scenario");
+    if (!methods.length) { throw new Error("请至少选择一种设计方法。"); }
+
+    const payload = {
+      doc_id: docId, text: docId ? null : text,
+      title: docId ? "上传文档" : "粘贴的需求文本",
+      methods, use_llm: el("useLlm").checked, max_items: 8,
+      use_llm_in_design: el("useLlmInDesign").checked
+    };
+    const result = await api("/pipeline/generate", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+    });
+    render(result);
+    banner("ok", `生成完成：共 ${result.suite.stats.total} 条用例（去重剔除 ${result.suite.stats.duplicate_removed} 条）。`);
+  } catch (e) {
+    banner("err", e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "一键生成用例";
+  }
+}
+
+function render(result) {
+  const suite = result.suite;
+  currentSuiteId = suite.suite_id;
+  el("resultCard").style.display = "block";
+  el("exportBtn").disabled = false;
+
+  const stats = suite.stats;
+  const parse = result.requirement_doc.parse_meta || {};
+  const gen = suite.generation_meta || {};
+  const itemCount = result.requirement_doc.items.length;
+  const coveredCount = Object.keys(stats.requirement_coverage || {}).length;
+  const items = [
+    ["用例总数", stats.total, ""],
+    ["去重剔除", stats.duplicate_removed, ""],
+    ["覆盖需求", `${coveredCount} / ${itemCount}`,
+      `已生成用例的需求条目数 / 解析出的需求条目总数（共 ${itemCount} 条）`],
+    ["需求解析", parse.llm_used ? `LLM（${parse.provider}）` : "规则引擎",
+      parse.fallback_used ? `已降级为规则解析：${parse.fallback_reason || "未配置或调用失败"}` : "需求文本 → 结构化需求模型所使用的引擎"],
+    ["用例生成", gen.llm_used ? "LLM 增强" : "规则引擎",
+      "设计方法生成用例时是否调用大模型，由「生成阶段也调用大模型」开关控制"],
+    ["需求条目", itemCount, `从文档解析出的章节数，受 max_items 上限约束`]
+  ];
+  el("stats").innerHTML = items.map(([k, v, hint]) =>
+    `<div class="stat"${hint ? ` title="${escapeHtml(hint)}"` : ""}>${k}<b>${v}</b></div>`).join("");
+  el("statsNote").textContent = "需求条目 = 文档中解析出的章节数；覆盖需求 = 至少生成 1 条用例的条目数。二者可因 max_items 上限或无法解析而不同。";
+
+  const warns = result.warnings || [];
+  el("warnBox").innerHTML = warns.length
+    ? `<div class="banner warn">共 ${warns.length} 条提示：<ul class="warn-list">${warns.slice(0, 8).map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul></div>`
+    : "";
+
+  const rows = suite.cases.slice(0, 300).map(c => `
+    <tr>
+      <td>${escapeHtml(c.case_id)}</td>
+      <td>${escapeHtml(c.module)}</td>
+      <td>${escapeHtml(c.title)}</td>
+      <td>${escapeHtml(methodLabel(c.design_method))}</td>
+      <td>${escapeHtml(coveredMethodsText(c))}</td>
+      <td>${escapeHtml(c.case_type)}</td>
+      <td><span class="tag ${c.priority.toLowerCase()}">${c.priority}</span></td>
+      <td class="pre">${escapeHtml(dataText(c.test_data))}</td>
+      <td class="pre">${escapeHtml(c.expected_result)}</td>
+    </tr>`).join("");
+  el("tbody").innerHTML = rows;
+  el("tableNote").textContent = suite.cases.length > 300
+    ? `仅展示前 300 条，完整 ${suite.cases.length} 条请导出 Excel 查看。`
+    : `共 ${suite.cases.length} 条用例。`;
+}
+
+function coveredMethodsText(c) {
+  const methods = (c.covered_methods && c.covered_methods.length) ? c.covered_methods : [c.design_method];
+  return methods.map(methodLabel).join("、");
+}
+function methodLabel(value) {
+  return { equivalence: "等价类划分", boundary: "边界值分析", scenario: "场景法" }[value] || value;
+}
+function dataText(data) {
+  return Object.entries(data || {}).map(([k, v]) => `${k} = ${v === "" ? "(空)" : v}`).join("\n");
+}
+function escapeHtml(value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+async function exportExcel() {
+  if (!currentSuiteId) return;
+  try {
+    const res = await fetch(`${API}/export/${encodeURIComponent(currentSuiteId)}/excel`);
+    if (!res.ok) { const body = await res.json().catch(() => null); throw new Error(body && body.message ? body.message : "导出失败"); }
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition") || "";
+    const match = cd.match(/filename\*=UTF-8''([^;]+)/i);
+    const filename = match ? decodeURIComponent(match[1]) : "testcases.xlsx";
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    banner("err", "导出失败：" + e.message);
+  }
+}
+
+el("runBtn").addEventListener("click", generate);
+el("exportBtn").addEventListener("click", exportExcel);
+init();
+</script>
+</body>
+</html>

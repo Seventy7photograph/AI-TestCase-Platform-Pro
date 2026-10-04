@@ -11,8 +11,9 @@ from app.design.boundary import BoundaryStrategy
 from app.design.engine import DesignEngine
 from app.design.equivalence import EquivalenceStrategy
 from app.design.optimizer import assign_case_ids, deduplicate, fingerprint, optimize, overlap_key, sort_cases
-from app.design.scenario import ScenarioStrategy
+from app.design.scenario import ScenarioStrategy, describe_test_data_issues, repair_test_data
 from app.llm.fake_provider import FakeProvider
+from app.llm.prompts import TASK_SCENARIO_ENRICHMENT
 from app.llm.null_provider import NullProvider
 from app.schemas.common import CaseType, DataType, DesignMethod, Priority, ValueCharset
 from app.schemas.requirement import FieldConstraint, RequirementDoc, RequirementItem
@@ -146,6 +147,30 @@ async def test_scenario_llm_enrichment(llm_context, sample_item) -> None:
     assert llm_cases, "FakeProvider 应产出 LLM 增强用例"
     assert all(case.title.startswith("[场景-LLM]") for case in llm_cases)
     assert llm_context.llm_call_count == 1
+
+
+async def test_scenario_llm_overlong_valid_data_is_repaired(settings, sample_item) -> None:
+    """LLM 在正常/边界用例里给出越界数据时，应修正为满足约束的值并记录告警。"""
+    scripted = {
+        TASK_SCENARIO_ENRICHMENT: {
+            "cases": [
+                {
+                    "title": "手机号边界组合",
+                    "case_type": "边界",
+                    "priority": "P1",
+                    "test_data": {"phone": "13800138000123"},
+                }
+            ]
+        }
+    }
+    context = DesignContext(
+        settings=settings, llm=FakeProvider(settings, scripted=scripted), use_llm=True
+    )
+    cases = await ScenarioStrategy(context).generate(sample_item)
+    llm_case = next(case for case in cases if case.source.value == "llm")
+    assert re.fullmatch(r"^1[3-9]\d{9}$", llm_case.test_data["phone"])
+    assert describe_test_data_issues(sample_item, llm_case.test_data, CaseType.BOUNDARY) == []
+    assert any("已按约束修正" in warning for warning in context.warnings)
 
 
 async def test_scenario_llm_failure_degrades(settings, sample_item) -> None:
@@ -493,3 +518,73 @@ async def test_boolean_field_has_no_space_boundary(context) -> None:
     item = RequirementItem(id="REQ-001", title="登录", fields=[field])
     cases = await BoundaryStrategy(context).generate(item)
     assert cases == []
+
+
+# --------------------------------------------------------------------------- #
+# 缺陷回归：LLM 增强用例的测试数据必须与字段约束一致
+# --------------------------------------------------------------------------- #
+def _refund_item() -> RequirementItem:
+    return RequirementItem(
+        id="REQ-001",
+        title="退款申请",
+        fields=[FieldConstraint(name="退款原因", label="退款原因", min_length=5, max_length=200)],
+    )
+
+
+def test_llm_valid_case_with_violating_data_is_flagged() -> None:
+    """LLM 在正常/边界用例里塞入违反 min_length 的数据时，必须给出可读提示。"""
+    issues = describe_test_data_issues(_refund_item(), {"退款原因": "不想要"}, CaseType.BOUNDARY)
+    assert issues and "最小长度 5" in issues[0]
+
+
+def test_llm_exception_case_is_not_flagged() -> None:
+    """异常用例本就用越界数据，不应误报。"""
+    assert describe_test_data_issues(_refund_item(), {"退款原因": "短"}, CaseType.EXCEPTION) == []
+
+
+def test_llm_data_is_checked_against_pattern() -> None:
+    item = RequirementItem(
+        id="REQ-001",
+        title="注册",
+        fields=[FieldConstraint(name="手机号", label="手机号", pattern=r"^1[3-9]\d{9}$")],
+    )
+    assert describe_test_data_issues(item, {"手机号": "abc"}, CaseType.FUNCTIONAL)
+    assert describe_test_data_issues(item, {"手机号": "13800138000"}, CaseType.FUNCTIONAL) == []
+
+
+def test_repair_truncates_overlong_valid_data() -> None:
+    """正常/边界用例数据超过 max_length 时，应被截断为合法值并给出说明。"""
+    item = RequirementItem(
+        id="REQ-001",
+        title="注册",
+        fields=[FieldConstraint(name="邀请码", label="邀请码", max_length=10)],
+    )
+    repaired, notes = repair_test_data(item, {"邀请码": "ABCDEFGHIJK"}, CaseType.BOUNDARY)
+    assert repaired["邀请码"] == "ABCDEFGHIJ"
+    assert notes and "最大长度 10" in notes[0]
+
+
+def test_repair_pads_short_valid_data() -> None:
+    """正常用例数据短于 min_length 时，应按字符集补足。"""
+    repaired, notes = repair_test_data(_refund_item(), {"退款原因": "不想要"}, CaseType.BOUNDARY)
+    assert len(repaired["退款原因"]) == 5
+    assert notes and "最小长度 5" in notes[0]
+
+
+def test_repair_rebuilds_data_violating_pattern() -> None:
+    """数据不符合正则时，应替换为匹配该格式的样例值。"""
+    item = RequirementItem(
+        id="REQ-001",
+        title="注册",
+        fields=[FieldConstraint(name="手机号", label="手机号", pattern=r"^1[3-9]\d{9}$")],
+    )
+    repaired, notes = repair_test_data(item, {"手机号": "abc"}, CaseType.FUNCTIONAL)
+    assert re.fullmatch(r"^1[3-9]\d{9}$", repaired["手机号"])
+    assert notes
+
+
+def test_repair_leaves_exception_data_untouched() -> None:
+    """异常用例的越界数据是设计意图，不得被修正。"""
+    repaired, notes = repair_test_data(_refund_item(), {"退款原因": "短"}, CaseType.EXCEPTION)
+    assert repaired["退款原因"] == "短"
+    assert notes == []

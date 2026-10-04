@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import re
 from difflib import SequenceMatcher
 from typing import Any
 
@@ -26,7 +27,7 @@ from app.llm.base import LLMProvider
 from app.llm.factory import get_llm_provider
 from app.llm.prompts import build_requirement_messages
 from app.repository import Repository, get_repository
-from app.schemas.common import DataType, Priority, RequirementType
+from app.schemas.common import DataType, Priority, RequirementType, ValueCharset
 from app.schemas.requirement import FieldConstraint, ParseMeta, RequirementDoc, RequirementItem
 from app.services import rule_parser
 
@@ -153,6 +154,39 @@ class _LLMField(BaseModel):
             return None
         text = str(value).strip()
         return text or None
+
+
+# LLM 常把「11位数字」这类自然语言描述塞进 pattern 字段，而不是给出真正的正则。
+# 含中文的一定不是正则，直接当格式约束使用会产出「有效数据却违反格式」的假缺陷。
+_NATURAL_LANGUAGE_PATTERN_RE = re.compile(r"[\u4e00-\u9fff]")
+
+
+def _is_usable_regex(pattern: str) -> bool:
+    """判断 LLM 给出的 pattern 是否为可用的正则表达式。"""
+    if not pattern or _NATURAL_LANGUAGE_PATTERN_RE.search(pattern):
+        return False
+    try:
+        re.compile(pattern)
+    except re.error:
+        return False
+    return True
+
+
+def _interpret_natural_pattern(raw: _LLMField) -> tuple[str | None, int | None, int | None, ValueCharset]:
+    """把自然语言格式描述（「11位数字」「长度5~200」）还原成结构化约束。
+
+    复用规则解析器：它能识别长度与数字字符集，并补上手机号 / 身份证 / 邮编等内置正则，
+    避免 LLM 措辞差异直接污染测试数据与展示。
+    """
+    parsed = rule_parser.build_field_constraint(
+        name=raw.name,
+        type_text=raw.data_type,
+        required=raw.required,
+        constraint_text=raw.pattern or "",
+        default=raw.default,
+        description=raw.description or raw.pattern or "",
+    )
+    return parsed.pattern, parsed.min_length, parsed.max_length, parsed.value_charset
 
 
 def _text_list(value: Any) -> list[str]:
@@ -338,7 +372,11 @@ class RequirementService:
         except ValidationError as exc:
             raise LLMError(f"LLM 返回结构不符合预期：{exc.error_count()} 处校验失败") from exc
 
-        items = [self._to_item(raw, index) for index, raw in enumerate(parsed_doc.items[:max_items], start=1)]
+        field_warnings: list[str] = []
+        items = [
+            self._to_item(raw, index, field_warnings)
+            for index, raw in enumerate(parsed_doc.items[:max_items], start=1)
+        ]
         items = [item for item in items if item.title]
         if not items:
             raise LLMError("LLM 未解析出任何需求条目（items 为空），已降级规则解析。")
@@ -358,12 +396,12 @@ class RequirementService:
                 llm_used=True,
                 fallback_used=False,
                 attempts=response.attempts,
-                warnings=list(rule_doc.parse_meta.warnings),
+                warnings=list(rule_doc.parse_meta.warnings) + field_warnings,
             ),
         )
 
-    def _to_item(self, raw: _LLMItem, index: int) -> RequirementItem:
-        fields = [self._to_field(field) for field in raw.fields]
+    def _to_item(self, raw: _LLMItem, index: int, warnings: list[str] | None = None) -> RequirementItem:
+        fields = [self._to_field(field, warnings) for field in raw.fields]
         fields = [field for field in fields if field.name]
         return RequirementItem(
             id=raw.id or f"REQ-{index:03d}",
@@ -383,11 +421,36 @@ class RequirementService:
         )
 
     @staticmethod
-    def _to_field(raw: _LLMField) -> FieldConstraint:
+    def _to_field(raw: _LLMField, warnings: list[str] | None = None) -> FieldConstraint:
         enum_values = raw.enum_values
         data_type = DataType(raw.data_type)
         if enum_values:
             data_type = DataType.ENUM
+
+        pattern = raw.pattern
+        min_length = raw.min_length
+        max_length = raw.max_length
+        charset = ValueCharset.TEXT
+        if pattern and not _is_usable_regex(pattern):
+            inferred_pattern, inferred_min, inferred_max, inferred_charset = _interpret_natural_pattern(raw)
+            if min_length is None:
+                min_length = inferred_min
+            if max_length is None:
+                max_length = inferred_max
+            charset = inferred_charset
+            pattern = inferred_pattern
+            message = (
+                f"字段「{raw.label or raw.name}」的格式描述「{raw.pattern}」不是合法正则，"
+                "已按长度/字符集约束处理。"
+            )
+            logger.info(message)
+            if warnings is not None and message not in warnings:
+                warnings.append(message)
+
+        if charset is ValueCharset.TEXT and pattern and rule_parser.is_digit_charset(raw.name, "", pattern):
+            # 内置格式本身只接受数字（如手机号）时，数据构造也应按数字填充。
+            charset = ValueCharset.DIGITS
+
         return FieldConstraint(
             name=raw.name,
             label=raw.label or raw.name,
@@ -396,12 +459,13 @@ class RequirementService:
             nullable=raw.nullable if not raw.required else False,
             min_value=raw.min_value,
             max_value=raw.max_value,
-            min_length=raw.min_length,
-            max_length=raw.max_length,
+            min_length=min_length,
+            max_length=max_length,
             enum_values=enum_values,
-            pattern=raw.pattern,
+            pattern=pattern,
             default=raw.default,
             unit=raw.unit,
+            value_charset=charset,
             description=raw.description,
         )
 

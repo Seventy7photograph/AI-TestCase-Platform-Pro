@@ -65,10 +65,12 @@ REQUIREMENT_SYSTEM_PROMPT = f"""你是资深测试架构师，擅长把非结构
 拆解规则：
 1. 最多输出 {{max_items}} 条 items，按业务重要性排序，一条需求对应一个可独立测试的功能点或业务规则。
 2. 数值范围（如 1~100、不超过 500）必须落到 min_value/max_value；
-   长度限制（如 6-20 位）落到 min_length/max_length；
+   长度限制（如 6-20 位、「11位数字」）落到 min_length/max_length；
    枚举取值（如 状态：待支付/已支付/已取消）落到 enum_values。
-3. 只有原文出现的信息才可写入，缺失信息用 null 或空数组，禁止编造。
-4. main_flow 与 alternative_flows 尽量拆成单步动词短语，便于生成场景用例。
+3. pattern 只允许填写真正的正则表达式（如 ^\\d{{11}}$、^1[3-9]\\d{{9}}$）；禁止把
+   「11位数字」「8位」这类自然语言描述写进 pattern，无法确定正则时填 null。
+4. 只有原文出现的信息才可写入，缺失信息用 null 或空数组，禁止编造。
+5. main_flow 与 alternative_flows 尽量拆成单步动词短语，便于生成场景用例。
 """
 
 SCENARIO_SYSTEM_PROMPT = f"""你是资深测试架构师，请针对给定需求条目补充「场景法」测试用例，重点覆盖易漏的异常、分支与组合场景。

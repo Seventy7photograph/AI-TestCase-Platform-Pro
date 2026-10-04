@@ -86,7 +86,9 @@ def test_container_heading_is_not_a_requirement() -> None:
     text = "# 需求说明书\n\n## 用户注册\n手机号：11位数字\n\n## 订单创建\n数量：1~99\n"
     _, _, items, _ = _doc(text)
     assert [item.title for item in items] == ["用户注册", "订单创建"]
-    assert {item.module for item in items} == {"需求说明书"}
+    # 只有一个容器型一级标题时，它只是文档名；模块应取子章节标题，
+    # 否则所有用例的「所属模块」都会退化成同一个文档名。
+    assert {item.module for item in items} == {"用户注册", "订单创建"}
 
 
 def test_single_heading_with_body_is_kept() -> None:
@@ -158,3 +160,34 @@ def test_plain_text_with_stray_tab_is_not_a_table() -> None:
     _, _, items, warnings = _doc(text)
     assert not any(item.fields for item in items)
     assert warnings == []
+
+
+# --------------------------------------------------------------------------- #
+# 缺陷回归：模块归属 / 枚举字段命名 / 默认优先级
+# --------------------------------------------------------------------------- #
+def test_multiple_level1_headings_keep_module_semantics() -> None:
+    """多个一级标题本身就是模块名时，模块归属不能被改写。"""
+    text = "# 用户模块\n## 注册\n手机号：11位数字\n\n# 订单模块\n## 下单\n数量：1~99\n"
+    _, _, items, _ = _doc(text)
+    assert {item.module for item in items} == {"用户模块", "订单模块"}
+
+
+def test_heading_only_doc_uses_section_title_as_module() -> None:
+    """整篇没有一级标题时，二级章节本身就是模块归属，不能退化成「默认模块」。"""
+    text = "## 用户注册\n手机号：11位数字\n\n## 订单创建\n数量：1~99\n"
+    _, _, items, _ = _doc(text)
+    assert {item.module for item in items} == {"用户注册", "订单创建"}
+
+
+def test_enum_field_name_strips_quzhi_suffix() -> None:
+    """「注册状态取值：待激活/已激活」应解析为字段「注册状态」而不是带"取值"的名字。"""
+    _, _, items, _ = _doc("## 注册\n注册状态取值：待激活/已激活/已冻结\n")
+    fields = {field.name: field for field in items[0].fields}
+    assert "注册状态" in fields
+    assert fields["注册状态"].enum_values == ["待激活", "已激活", "已冻结"]
+
+
+def test_exception_or_business_rule_bumps_default_priority() -> None:
+    """未显式标注优先级、但含异常场景/业务规则时，默认提升为 P1 而非全部 P2。"""
+    _, _, items, _ = _doc("## 普通功能\n异常场景：\n- 网络中断\n")
+    assert items[0].priority is Priority.P1

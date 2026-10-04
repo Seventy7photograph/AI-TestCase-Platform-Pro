@@ -38,6 +38,7 @@ const activeNav = computed(() => String(route.meta.nav ?? "workbench"));
         class="drawer"
         :class="{ 'drawer--open': activeNav === drawer.nav }"
         :aria-current="activeNav === drawer.nav ? 'page' : undefined"
+        :title="`${drawer.label} · ${drawer.hint}`"
       >
         <span class="drawer__label">{{ drawer.label }}</span>
         <span class="drawer__hint mono">{{ drawer.hint }}</span>
@@ -47,10 +48,18 @@ const activeNav = computed(() => String(route.meta.nav ?? "workbench"));
     <div class="rail__foot">
       <p class="rail__footLabel label">推理引擎</p>
       <p class="rail__footValue">{{ health.llmLabel }}</p>
-      <p v-if="!health.reachable" class="rail__footWarn">
+      <p
+        v-if="!health.reachable"
+        class="rail__footWarn"
+        :title="health.error || '正在读取服务状态'"
+      >
         {{ health.error || "正在读取服务状态…" }}
       </p>
-      <p v-else-if="!health.llmReady" class="rail__footWarn">
+      <p
+        v-else-if="!health.llmReady"
+        class="rail__footWarn"
+        title="未配置 LLM_API_KEY 时自动降级为纯规则引擎，功能仍可用"
+      >
         未配置 API Key，链路仍端到端可用
       </p>
     </div>

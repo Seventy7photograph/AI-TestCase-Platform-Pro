@@ -1,7 +1,7 @@
 """需求解析结果查询与（重新）解析。"""
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.api.deps import PipelineServiceDep, RequirementServiceDep
 from app.schemas.api import ApiResponse, RequirementParseRequest, ok
@@ -41,11 +41,17 @@ async def generate_from_parsed(
     doc_id: str,
     service: RequirementServiceDep,
     pipeline: PipelineServiceDep,
-    methods: list[str] | None = None,
-    use_llm_in_design: bool = False,
+    methods: str | None = Query(
+        default=None,
+        description="设计方法，逗号分隔（equivalence,boundary,scenario）；省略则使用全部已实现方法。",
+    ),
+    use_llm_in_design: bool = Query(
+        default=False, description="生成阶段是否调用大模型补充场景法用例。"
+    ),
 ) -> dict:
     requirement_doc = service.get(doc_id)
+    parsed_methods = [item.strip() for item in methods.split(",") if item.strip()] if methods else None
     suite = await pipeline.generate_from_requirement(
-        requirement_doc, methods=methods, use_llm_in_design=use_llm_in_design
+        requirement_doc, methods=parsed_methods, use_llm_in_design=use_llm_in_design
     )
     return ok(suite, message="用例生成完成")

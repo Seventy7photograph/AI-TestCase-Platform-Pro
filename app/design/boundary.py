@@ -16,15 +16,19 @@ from app.design.base import (
     DesignStrategy,
     bump_priority,
     field_constraint_text,
-    fill_value,
     format_number,
+    length_sample,
     make_single_step,
 )
-from app.schemas.common import CaseType, DesignMethod
+from app.schemas.common import CaseType, DataType, DesignMethod
 from app.schemas.requirement import FieldConstraint, RequirementItem
 from app.schemas.testcase import TestCase
 
 MAX_POINTS_PER_FIELD = 12
+
+# 「全空格边界」只对文本类字段有意义；布尔/枚举/日期等类型没有长度概念，
+# 补一个空格只会产出无意义的噪声用例。
+_SPACE_BOUNDARY_TYPES = frozenset({DataType.STRING, DataType.OTHER})
 
 
 @dataclass(slots=True)
@@ -112,7 +116,7 @@ class BoundaryStrategy(DesignStrategy):
         if field.required and not any(point.value == "" for point in points):
             points.append(BoundaryPoint("", "必填边界（留空）", False))
 
-        if not points and not field.required:
+        if not points and not field.required and field.data_type in _SPACE_BOUNDARY_TYPES:
             points.append(BoundaryPoint(" ", "全空格边界", False))
 
         points = dedupe_points(points)
@@ -139,36 +143,45 @@ class BoundaryStrategy(DesignStrategy):
     @staticmethod
     def _length_points(field: FieldConstraint) -> list[BoundaryPoint]:
         points: list[BoundaryPoint] = []
-        charset = field.data_charset
         if field.min_length is not None:
             if field.min_length - 1 >= 0:
                 points.append(
                     BoundaryPoint(
-                        fill_value(field.min_length - 1, charset),
+                        length_sample(field, field.min_length - 1),
                         f"长度{field.min_length - 1}（最小长度-1）",
                         False,
                     )
                 )
             points.append(
-                BoundaryPoint(fill_value(field.min_length, charset), f"长度{field.min_length}（最小长度）", True)
+                BoundaryPoint(
+                    length_sample(field, field.min_length), f"长度{field.min_length}（最小长度）", True
+                )
             )
             points.append(
                 BoundaryPoint(
-                    fill_value(field.min_length + 1, charset), f"长度{field.min_length + 1}（最小长度+1）", True
+                    length_sample(field, field.min_length + 1),
+                    f"长度{field.min_length + 1}（最小长度+1）",
+                    True,
                 )
             )
         if field.max_length is not None:
             points.append(
                 BoundaryPoint(
-                    fill_value(field.max_length - 1, charset), f"长度{field.max_length - 1}（最大长度-1）", True
+                    length_sample(field, field.max_length - 1),
+                    f"长度{field.max_length - 1}（最大长度-1）",
+                    True,
                 )
             )
             points.append(
-                BoundaryPoint(fill_value(field.max_length, charset), f"长度{field.max_length}（最大长度）", True)
+                BoundaryPoint(
+                    length_sample(field, field.max_length), f"长度{field.max_length}（最大长度）", True
+                )
             )
             points.append(
                 BoundaryPoint(
-                    fill_value(field.max_length + 1, charset), f"长度{field.max_length + 1}（最大长度+1）", False
+                    length_sample(field, field.max_length + 1),
+                    f"长度{field.max_length + 1}（最大长度+1）",
+                    False,
                 )
             )
         return points

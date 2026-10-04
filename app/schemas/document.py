@@ -37,6 +37,7 @@ class DocumentSummary(BaseModel):
     size_bytes: int
     char_count: int
     line_count: int
+    encoding: str = "utf-8"
     parser: str
     page_count: int | None = None
     table_count: int = 0
@@ -53,6 +54,7 @@ class DocumentSummary(BaseModel):
             size_bytes=record.size_bytes,
             char_count=record.char_count,
             line_count=record.line_count,
+            encoding=record.encoding,
             parser=record.parser,
             page_count=record.page_count,
             table_count=record.table_count,

@@ -19,6 +19,7 @@ from app.design.base import (
     format_number,
     length_sample,
     make_single_step,
+    pattern_sample,
 )
 from app.schemas.common import CaseType, DesignMethod
 from app.schemas.requirement import FieldConstraint, RequirementItem
@@ -142,11 +143,18 @@ class EquivalenceStrategy(DesignStrategy):
 
     @staticmethod
     def _numeric_representative(field: FieldConstraint) -> str:
+        # 有内置样例且落在取值范围内时优先采用（如金额 100.00），
+        # 否则中点可能超出精度约束（25000.005 违反「最多两位小数」）。
+        sample = pattern_sample(field.pattern)
+        if sample is not None and _value_in_numeric_range(field, sample):
+            return sample
         if field.min_value is not None and field.max_value is not None:
-            middle = (field.min_value + field.max_value) / 2
-            if field.data_type.value == "integer":
-                middle = round(middle)
-            return format_number(middle)
+            low, high = field.min_value, field.max_value
+            if float(low).is_integer() and float(high).is_integer():
+                # 整数区间必须取整，否则「查询页码 1~1000」会产出 500.5 这类非法值。
+                return format_number(low + (high - low) // 2)
+            decimals = min(max(_decimals(low), _decimals(high)), 6)
+            return format_number(round((low + high) / 2, decimals))
         if field.min_value is not None:
             return format_number(field.min_value)
         return format_number(field.max_value or 0)
@@ -199,6 +207,26 @@ class EquivalenceStrategy(DesignStrategy):
 # --------------------------------------------------------------------------- #
 # 模块级小工具
 # --------------------------------------------------------------------------- #
+
+def _decimals(value: float) -> int:
+    """返回数值的小数位数（用于把代表值对齐到字段允许的精度）。"""
+    text = repr(float(value))
+    if "e" in text or "E" in text:
+        return 6
+    return len(text.split(".", 1)[1]) if "." in text else 0
+
+
+def _value_in_numeric_range(field: FieldConstraint, value: str) -> bool:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    if field.min_value is not None and number < field.min_value:
+        return False
+    if field.max_value is not None and number > field.max_value:
+        return False
+    return True
+
 
 def describe_value(value: str) -> str:
     if value == "":

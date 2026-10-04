@@ -58,8 +58,6 @@ export const api = {
 
   generate: (payload: GeneratePayload) =>
     post<GenerateResult>("/pipeline/generate", payload),
-  generateSuite: (payload: GeneratePayload) =>
-    post<TestCaseSuite>("/testcases/generate", payload),
 
   exportSuite: (suiteId: string, format: string) =>
     downloadFile(`/export/${encodeURIComponent(suiteId)}/${format}`),

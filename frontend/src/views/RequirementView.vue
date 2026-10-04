@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
 
 import { api } from "@/api";
 import type { FieldConstraint, RequirementItem } from "@/api";
 import { useAsync } from "@/composables/useAsync";
+import { confirmAction, notice } from "@/composables/useNotice";
 import {
   RESERVED_METHODS,
   V1_METHODS,
@@ -81,8 +81,16 @@ function flowGroups(item: RequirementItem) {
 
 async function generateCases(): Promise<void> {
   if (!methods.value.length) {
-    ElMessage.error("请至少选择一种设计方法。");
+    notice.error("请至少选择一种设计方法。");
     return;
+  }
+  if (useLlmInDesign.value) {
+    const ok = await confirmAction(
+      "生成阶段将调用大模型补齐场景用例，耗时更长。是否继续？",
+      "开始生成用例",
+      "开始生成",
+    );
+    if (!ok) return;
   }
   generating.value = true;
   try {
@@ -91,12 +99,28 @@ async function generateCases(): Promise<void> {
       methods.value,
       useLlmInDesign.value,
     );
-    ElMessage.success(`已生成 ${suite.stats.total} 条用例`);
+    notice.done("用例生成完成", `已生成 ${suite.stats.total} 条用例，正在打开用例集…`);
     await router.push(`/suites/${suite.suite_id}`);
   } catch (err) {
-    ElMessage.error(err instanceof Error ? err.message : "生成失败");
+    notice.error(err, "生成失败，请稍后重试。");
   } finally {
     generating.value = false;
+  }
+}
+
+async function reparse(): Promise<void> {
+  if (!data.value) return;
+  const ok = await confirmAction(
+    `将重新解析《${data.value.title}》，这会覆盖当前的结构化需求。是否继续？`,
+    "重新解析",
+    "重新解析",
+  );
+  if (!ok) return;
+  const result = await requirement.run(docId.value);
+  if (result) {
+    notice.success(`已重新解析，共 ${result.items.length} 条需求。`);
+  } else if (requirement.error.value) {
+    notice.error(requirement.error.value);
   }
 }
 
@@ -114,11 +138,18 @@ onMounted(() => {
       back-label="文档与需求"
     >
       <template #actions>
-        <el-button :disabled="!data" @click="requirement.run(docId)">重新解析</el-button>
+        <el-button
+          :disabled="!data"
+          title="按当前解析设置重新解析本文档，会覆盖已保存的结构化需求"
+          @click="reparse"
+        >
+          重新解析
+        </el-button>
         <el-button
           type="primary"
           :loading="generating"
           :disabled="!data || !data.items.length"
+          title="基于当前需求与所选设计方法生成用例集"
           @click="generateCases"
         >
           基于该需求生成用例
@@ -151,16 +182,23 @@ onMounted(() => {
             <el-checkbox v-for="method in V1_METHODS" :key="method" :value="method">
               {{ methodLabel(method) }}
             </el-checkbox>
-            <el-checkbox v-for="method in RESERVED_METHODS" :key="method" :value="method" disabled>
+            <el-checkbox
+              v-for="method in RESERVED_METHODS"
+              :key="method"
+              :value="method"
+              disabled
+              title="该设计方法计划在 V2.0 提供，当前版本调用会返回 501"
+            >
               {{ methodLabel(method) }}
               <span class="reserved">V2 预留</span>
             </el-checkbox>
           </el-checkbox-group>
           <span class="spacer"></span>
-          <label class="inline">
+          <label class="inline" title="开启后会调用大模型补齐场景法用例，耗时更长">
             <el-switch v-model="useLlmInDesign" />
             <span>生成阶段也调用大模型</span>
           </label>
+          <p v-if="!methods.length" class="hint hint--bad">请至少选择一种设计方法。</p>
         </div>
       </section>
 
@@ -227,6 +265,15 @@ onMounted(() => {
 .gen__note,
 .item__desc {
   font-size: var(--fs-xs);
+}
+
+.hint {
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+}
+
+.hint--bad {
+  color: var(--danger);
 }
 
 .item__desc {

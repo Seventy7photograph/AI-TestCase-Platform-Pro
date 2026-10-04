@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import abc
+import re
 from dataclasses import dataclass, field
 
 from app.core.config import Settings
@@ -157,9 +158,27 @@ PATTERN_SAMPLES: dict[str, str] = {
     r"^1[3-9]\d{9}$": "13800138000",
     r"^\d{17}[\dXx]$": "11010119900307123X",
     r"^\d{6}$": "100000",
+    r"^\d{11}$": "13800138000",
+    r"^\d{12}$": "202601011200",
+    r"^\d{4}$": "1000",
     r"^https?://.+$": "https://example.com",
     r"^\d+(\.\d{1,2})?$": "100.00",
 }
+
+# 匹配「只接受数字」的正则（如 ^\d{11}$、^\d{6}$）：去掉 \d、量词与锚点/分组符号后，
+# 若不再残留任何字面字符，则说明该正则只接受数字。用于在没有内置样例时仍按数字填充。
+_DIGIT_ONLY_QUANTIFIER_RE = re.compile(r"\{\d+(?:,\d*)?\}")
+_DIGIT_ONLY_SYMBOL_RE = re.compile(r"[\^$()\[\]\+\-\*\?\\|:{}]")
+
+
+def pattern_is_digit_only(pattern: str | None) -> bool:
+    """判断正则是否「只接受数字」；供数据构造选择数字字符集。"""
+    if not pattern:
+        return False
+    stripped = pattern.replace(r"\d", "")
+    stripped = _DIGIT_ONLY_QUANTIFIER_RE.sub("", stripped)
+    stripped = _DIGIT_ONLY_SYMBOL_RE.sub("", stripped)
+    return stripped == ""
 
 
 def fill_value(length: int, charset: ValueCharset | str = ValueCharset.TEXT) -> str:
@@ -184,11 +203,18 @@ def pattern_sample(pattern: str | None) -> str | None:
 
 
 def length_sample(field: FieldConstraint, length: int) -> str:
-    """长度类字段的代表值：优先用符合格式的样例，否则按字符集填充。"""
+    """构造长度恰好为 ``length`` 的代表值：等长且符合格式时用内置样例，否则按字符集填充。
+
+    必须要求样例长度与目标长度严格相等：边界值需要「长度10 / 11 / 12」三种不同取值，
+    否则 11 位的固定样例会让所有长度点塌缩成同一个值，边界用例退化为一条。
+    没有内置样例但正则只接受数字时（如 LLM 抽取出的 ``^\\d{11}$``），
+    按数字填充，避免把手机号这类字段填成字母而产出"有效却非法"的数据。
+    """
     sample = pattern_sample(field.pattern)
-    if sample and _fits_length(field, len(sample)):
+    if sample and len(sample) == length and _fits_length(field, length):
         return sample
-    return fill_value(length, field.data_charset)
+    charset = ValueCharset.DIGITS if pattern_is_digit_only(field.pattern) else field.data_charset
+    return fill_value(length, charset)
 
 
 def _fits_length(field: FieldConstraint, size: int) -> bool:

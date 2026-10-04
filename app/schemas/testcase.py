@@ -63,6 +63,10 @@ class SuiteStats(BaseModel):
     total: int = 0
     duplicate_removed: int = 0
     by_method: dict[str, int] = Field(default_factory=dict)
+    by_covered_method: dict[str, int] = Field(
+        default_factory=dict,
+        description="按覆盖方法统计：去重合并后一条用例可能同时覆盖多种方法，因此各项之和可大于用例总数。",
+    )
     by_type: dict[str, int] = Field(default_factory=dict)
     by_priority: dict[str, int] = Field(default_factory=dict)
     requirement_coverage: dict[str, int] = Field(default_factory=dict)
@@ -97,16 +101,20 @@ class TestCaseSuite(BaseModel):
     def recount(self) -> SuiteStats:
         """重算统计口径（去重后调用）。"""
         by_method: dict[str, int] = {}
+        by_covered: dict[str, int] = {}
         by_type: dict[str, int] = {}
         by_priority: dict[str, int] = {}
         coverage: dict[str, int] = {}
         for case in self.cases:
             by_method[case.design_method.label] = by_method.get(case.design_method.label, 0) + 1
+            for method in case.covered_methods or [case.design_method]:
+                by_covered[method.label] = by_covered.get(method.label, 0) + 1
             by_type[case.case_type.value] = by_type.get(case.case_type.value, 0) + 1
             by_priority[case.priority.value] = by_priority.get(case.priority.value, 0) + 1
             for req_id in case.requirement_ids:
                 coverage[req_id] = coverage.get(req_id, 0) + 1
         self.stats.by_method = by_method
+        self.stats.by_covered_method = by_covered
         self.stats.by_type = by_type
         self.stats.by_priority = by_priority
         self.stats.requirement_coverage = dict(sorted(coverage.items()))

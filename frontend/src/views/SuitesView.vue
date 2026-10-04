@@ -4,7 +4,8 @@ import { useRouter } from "vue-router";
 
 import { api } from "@/api";
 import { useAsync } from "@/composables/useAsync";
-import { METHOD_SHORT, formatDateTime } from "@/utils/labels";
+import { notice } from "@/composables/useNotice";
+import { METHOD_SHORT, formatDateTime, methodLabel } from "@/utils/labels";
 import EmptyState from "@/components/EmptyState.vue";
 import ErrorNote from "@/components/ErrorNote.vue";
 import PageHead from "@/components/PageHead.vue";
@@ -17,6 +18,15 @@ const rows = computed(() => suites.data.value ?? []);
 onMounted(() => {
   void suites.run();
 });
+
+async function refresh(): Promise<void> {
+  const list = await suites.run();
+  if (list) {
+    notice.success(`已刷新，共 ${list.length} 份用例集。`);
+  } else if (suites.error.value) {
+    notice.error(suites.error.value);
+  }
+}
 </script>
 
 <template>
@@ -26,7 +36,7 @@ onMounted(() => {
       note="服务端保存的最近 30 次生成结果。打开任意一份可以筛选、追溯来源需求，并导出 Excel 或 JSON。"
     >
       <template #actions>
-        <el-button @click="suites.run()">刷新</el-button>
+        <el-button title="重新载入最近生成的用例集列表" @click="refresh">刷新</el-button>
         <el-button type="primary" @click="router.push('/')">去生成</el-button>
       </template>
     </PageHead>
@@ -57,15 +67,32 @@ onMounted(() => {
             覆盖 {{ Object.keys(suite.stats.requirement_coverage || {}).length }} 条需求
           </span>
           <span class="index__methods">
-            <span v-for="method in suite.methods" :key="method" class="chip mono">
+            <span
+              v-for="method in suite.methods"
+              :key="method"
+              class="chip mono"
+              :title="methodLabel(method)"
+            >
               {{ METHOD_SHORT[method] || method }}
             </span>
-            <span v-if="suite.generation_meta.llm_used" class="chip chip--accent mono">LLM</span>
-            <span v-else class="chip mono">规则</span>
+            <span
+              v-if="suite.generation_meta.llm_used"
+              class="chip chip--accent mono"
+              title="生成阶段调用了大模型增强"
+            >
+              LLM
+            </span>
+            <span v-else class="chip mono" title="由规则引擎生成，未调用大模型">规则</span>
           </span>
         </button>
         <div class="index__actions">
-          <el-button text @click="router.push(`/suites/${suite.suite_id}`)">打开</el-button>
+          <el-button
+            text
+            title="打开用例集：筛选、追溯来源需求并导出"
+            @click="router.push(`/suites/${suite.suite_id}`)"
+          >
+            打开
+          </el-button>
         </div>
       </li>
     </ul>

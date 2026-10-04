@@ -6,6 +6,7 @@ import { Download } from "@element-plus/icons-vue";
 import { api, saveBlob } from "@/api";
 import type { RequirementDoc, RequirementItem, TestCase, TestCaseSuite } from "@/api";
 import { useAsync } from "@/composables/useAsync";
+import { notice } from "@/composables/useNotice";
 import { formatDateTime, formatDuration, methodLabel, percent, priorityRank } from "@/utils/labels";
 import CaseTable from "@/components/CaseTable.vue";
 import EmptyState from "@/components/EmptyState.vue";
@@ -29,6 +30,7 @@ const suite = useAsync((id: string) => api.suite(id));
 const requirement = ref<RequirementDoc | null>(null);
 const requirementMissing = ref(false);
 const focusedCase = ref<string | null>(null);
+const exporting = ref<"excel" | "json" | "">("");
 
 const data = computed<TestCaseSuite | null>(() => suite.data.value);
 
@@ -96,6 +98,14 @@ const statItems = computed<StatItem[]>(() => {
         ? `${generation.llm_provider} · ${generation.llm_model}`
         : "设计方法生成用例时的引擎",
     },
+    {
+      label: "覆盖方法",
+      value: Object.keys(stats.by_covered_method ?? {}).length,
+      hint:
+        Object.entries(stats.by_covered_method ?? {})
+          .map(([name, count]) => `${name} ${count}`)
+          .join(" · ") || "按用例实际覆盖的方法计数（含跨方法合并）",
+    },
     { label: "生成耗时", value: formatDuration(generation.elapsed_ms), hint: "设计引擎耗时" },
   ];
   return items;
@@ -103,12 +113,20 @@ const statItems = computed<StatItem[]>(() => {
 
 async function exportAs(format: "excel" | "json"): Promise<void> {
   const current = data.value;
-  if (!current) return;
-  const file = await api.exportSuite(current.suite_id, format);
-  saveBlob(
-    file.blob,
-    file.filename || `${current.suite_id}.${format === "excel" ? "xlsx" : "json"}`,
-  );
+  if (!current || exporting.value) return;
+  exporting.value = format;
+  try {
+    const file = await api.exportSuite(current.suite_id, format);
+    saveBlob(
+      file.blob,
+      file.filename || `${current.suite_id}.${format === "excel" ? "xlsx" : "json"}`,
+    );
+    notice.success(`已导出 ${format === "excel" ? "Excel" : "JSON"} 文件。`);
+  } catch (err) {
+    notice.error(err, "导出失败，请稍后重试。");
+  } finally {
+    exporting.value = "";
+  }
 }
 
 async function load(): Promise<void> {
@@ -120,6 +138,7 @@ async function load(): Promise<void> {
     requirement.value = await api.requirement(current.doc_id);
   } catch {
     requirementMissing.value = true;
+    notice.warn("未找到对应的结构化需求，只能按用例自身的追溯信息查看来源。");
   }
 }
 
@@ -135,17 +154,32 @@ onMounted(load);
       back-label="用例集"
     >
       <template #actions>
-        <el-button :disabled="!data" @click="load">刷新</el-button>
+        <el-button :disabled="!data" title="重新载入用例集与需求追溯" @click="load">刷新</el-button>
         <el-button
           v-if="data?.doc_id"
+          title="打开该用例集对应的结构化需求"
           @click="router.push(`/documents/${data.doc_id}/requirement`)"
         >
           查看结构化需求
         </el-button>
-        <el-button type="primary" :icon="Download" :disabled="!data" @click="exportAs('excel')">
+        <el-button
+          type="primary"
+          :icon="Download"
+          :disabled="!data"
+          :loading="exporting === 'excel'"
+          title="导出为 Excel：用例明细 / 统计 / 需求追溯"
+          @click="exportAs('excel')"
+        >
           导出 Excel
         </el-button>
-        <el-button :disabled="!data" @click="exportAs('json')">JSON</el-button>
+        <el-button
+          :disabled="!data"
+          :loading="exporting === 'json'"
+          title="导出为 JSON，便于二次处理"
+          @click="exportAs('json')"
+        >
+          JSON
+        </el-button>
       </template>
     </PageHead>
 

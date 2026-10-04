@@ -1,6 +1,8 @@
 """设计策略单测：等价类、边界值、场景法、优化器、V2.0 占位。"""
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from app.core.exceptions import FeatureNotAvailableError, NotFoundError
@@ -398,3 +400,96 @@ async def test_engine_deduplicates_across_methods(settings) -> None:
     assert len(blanks) == 1, "留空用例应只保留一条"
     assert suite.stats.duplicate_removed >= 1
     assert {method.value for method in blanks[0].covered_methods} == {"equivalence", "boundary"}
+    # 合并后的用例应在「按覆盖方法」统计中计入两种方法
+    assert suite.stats.by_covered_method.get("等价类划分", 0) >= 1
+    assert suite.stats.by_covered_method.get("边界值分析", 0) >= 1
+
+
+# --------------------------------------------------------------------------- #
+# 缺陷回归：有效测试数据必须满足字段自身约束
+# --------------------------------------------------------------------------- #
+async def test_integer_range_representative_is_integral(context) -> None:
+    """「查询页码 1~1000」这类数值区间，有效代表值必须是整数（不能是 500.5）。"""
+    field = FieldConstraint(name="查询页码", label="查询页码", min_value=1, max_value=1000)
+    item = RequirementItem(id="REQ-001", title="订单查询", fields=[field])
+    cases = await EquivalenceStrategy(context).generate(item)
+    # 只取「非空代表值」：可空字段额外的空值等价类是另一维度，不代表数值区间的有效取值。
+    valid = [
+        case.test_data["查询页码"]
+        for case in cases
+        if case.case_type is CaseType.FUNCTIONAL and case.test_data["查询页码"]
+    ]
+    assert valid == ["500"], valid
+
+
+async def test_money_representative_respects_pattern(context) -> None:
+    """金额字段的有效代表值必须满足自身正则（不能出现 25000.005）。"""
+    field = FieldConstraint(
+        name="订单金额",
+        label="订单金额",
+        data_type=DataType.FLOAT,
+        min_value=0.01,
+        max_value=50000,
+        pattern=r"^\d+(\.\d{1,2})?$",
+    )
+    item = RequirementItem(id="REQ-001", title="下单", fields=[field])
+    cases = await EquivalenceStrategy(context).generate(item)
+    valid = [
+        case.test_data["订单金额"]
+        for case in cases
+        if case.case_type is CaseType.FUNCTIONAL and case.test_data["订单金额"]
+    ]
+    assert valid and all(re.fullmatch(field.pattern or "", value) for value in valid), valid
+
+
+async def test_boundary_valid_data_satisfies_pattern(context) -> None:
+    """边界值分析的「边界内」数据必须满足字段正则（手机号不能是 111…）。"""
+    field = FieldConstraint(
+        name="phone",
+        label="手机号",
+        data_type=DataType.STRING,
+        required=True,
+        nullable=False,
+        min_length=11,
+        max_length=11,
+        pattern=r"^1[3-9]\d{9}$",
+    )
+    item = RequirementItem(id="REQ-001", title="注册", fields=[field])
+    cases = await BoundaryStrategy(context).generate(item)
+    valid = [
+        case.test_data["phone"]
+        for case in cases
+        if case.case_type in (CaseType.BOUNDARY, CaseType.FUNCTIONAL)
+    ]
+    assert valid and all(re.fullmatch(field.pattern or "", value) for value in valid), valid
+
+
+async def test_digit_only_pattern_without_sample_uses_digits(context) -> None:
+    """LLM 常给出 ^\\d{11}$ 这类无内置样例的正则，构造出的数据仍必须是数字。"""
+    field = FieldConstraint(
+        name="phone",
+        label="手机号",
+        data_type=DataType.STRING,
+        required=True,
+        nullable=False,
+        min_length=11,
+        max_length=11,
+        pattern=r"^\d{11}$",
+    )
+    item = RequirementItem(id="REQ-001", title="注册", fields=[field])
+    eq_valid = [
+        case.test_data["phone"]
+        for case in await EquivalenceStrategy(context).generate(item)
+        if case.case_type is CaseType.FUNCTIONAL
+    ]
+    bv_values = [case.test_data.get("phone", "") for case in await BoundaryStrategy(context).generate(item)]
+    assert all(value.isdigit() for value in eq_valid), eq_valid
+    assert all(value == "" or value.isdigit() for value in bv_values), bv_values
+
+
+async def test_boolean_field_has_no_space_boundary(context) -> None:
+    """布尔字段没有长度概念，不应生成"全空格边界"噪声用例。"""
+    field = FieldConstraint(name="记住登录", label="记住登录", data_type=DataType.BOOLEAN)
+    item = RequirementItem(id="REQ-001", title="登录", fields=[field])
+    cases = await BoundaryStrategy(context).generate(item)
+    assert cases == []

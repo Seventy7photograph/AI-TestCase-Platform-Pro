@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 
+import { notice } from "@/composables/useNotice";
 import { useHealthStore } from "@/stores/health";
 import ErrorNote from "@/components/ErrorNote.vue";
 import PageHead from "@/components/PageHead.vue";
@@ -59,6 +60,15 @@ const statItems = computed<StatItem[]>(() => {
 onMounted(() => {
   void health.load(true);
 });
+
+async function refresh(): Promise<void> {
+  await health.load(true);
+  if (health.reachable) {
+    notice.success("已重新检测服务状态。");
+  } else if (health.error) {
+    notice.error(health.error);
+  }
+}
 </script>
 
 <template>
@@ -68,7 +78,9 @@ onMounted(() => {
       note="当前服务的真实能力边界。已注册但未实现的能力会明确标注，避免误以为可用。"
     >
       <template #actions>
-        <el-button @click="health.load(true)">重新检测</el-button>
+        <el-button title="重新请求 /api/v1/health，刷新能力清单" @click="refresh">
+          重新检测
+        </el-button>
       </template>
     </PageHead>
 
@@ -91,6 +103,11 @@ onMounted(() => {
               <span
                 class="state"
                 :class="method.implemented ? 'state--on' : 'state--off'"
+                :title="
+                  method.implemented
+                    ? '当前版本已实现，可直接调用'
+                    : '已注册但未实现，调用会返回 501'
+                "
               >
                 {{ method.implemented ? "已实现" : "调用返回 501" }}
               </span>
@@ -128,7 +145,11 @@ onMounted(() => {
                 <span class="mono list__code">{{ item.name }}</span>
                 <span class="list__label">{{ item.label }}</span>
               </span>
-              <span class="state" :class="item.implemented ? 'state--on' : 'state--off'">
+              <span
+                class="state"
+                :class="item.implemented ? 'state--on' : 'state--off'"
+                :title="item.implemented ? '当前版本已实现' : '计划在 V3.0 提供'"
+              >
                 {{ item.implemented ? "已实现" : "V3 预留" }}
               </span>
             </li>

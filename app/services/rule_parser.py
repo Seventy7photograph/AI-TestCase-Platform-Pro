@@ -134,7 +134,9 @@ def parse_requirements(
     if not normalized:
         return doc_title or "空文档", "", [], ["文档内容为空，未能解析出任何需求。"]
 
-    sections = drop_container_sections(split_sections(normalized))
+    sections = split_sections(normalized)
+    sections = drop_container_sections(sections)
+    _reassign_doc_title_modules(sections)
     items: list[RequirementItem] = []
     for section in sections[:max_items]:
         item = build_item(section, sequence=len(items) + 1)
@@ -189,7 +191,12 @@ def split_sections(text: str) -> list[Section]:
                 pending = []
             if level <= 1:
                 current_module = title
-            current = Section(title=title, level=level, module=current_module if level > 1 else title)
+            module = current_module if level > 1 else title
+            if module == "默认模块":
+                # 没有任何一级标题时（如整篇都用 ## 或加粗标题），子章节自己就是
+                # 模块归属；否则所有用例的「所属模块」都会退化成「默认模块」。
+                module = title
+            current = Section(title=title, level=level, module=module)
             sections.append(current)
             continue
         pending.append(raw_line.rstrip())
@@ -242,6 +249,27 @@ def drop_container_sections(sections: list[Section]) -> list[Section]:
             continue
         result.append(section)
     return result or sections
+
+
+def _reassign_doc_title_modules(sections: list[Section]) -> None:
+    """把「容器型一级标题」遗留的模块名改写为各自章节标题。
+
+    典型场景：``# 某某系统需求说明书`` 下面全是 ``## 用户注册`` 子章节。
+    容器标题通常没有正文，会在 :func:`split_sections` 阶段被丢弃，
+    但仍以 ``module`` 的形式留在了子章节上，导致所有用例的「所属模块」
+    退化成同一个文档名。
+    判定条件：全部章节共享同一个模块名，且该名字不是任何一个章节的标题
+    —— 这只可能来自被丢弃的容器标题。若存在多个一级标题（如 ``# 用户模块`` /
+    ``# 订单模块``），它们本身就是模块名、彼此不同，不会被改写。
+    """
+    modules = {section.module for section in sections}
+    if len(modules) != 1:
+        return
+    shared = next(iter(modules))
+    if shared == "默认模块" or any(section.title == shared for section in sections):
+        return
+    for section in sections:
+        section.module = section.title
 
 
 def paragraph_sections(text: str) -> list[Section]:
@@ -336,12 +364,18 @@ def build_item(section: Section, *, sequence: int) -> RequirementItem | None:
     if not description and not fields and not any(buckets.values()):
         return None
 
+    priority = infer_priority(f"{section.title}\n{description}")
+    if priority is Priority.P2 and (buckets["exceptions"] or buckets["business_rules"]):
+        # 没有显式优先级提示，但包含异常场景/业务规则时，默认提升为 P1，
+        # 避免规则解析产出的用例几乎全部堆在 P2。
+        priority = Priority.P1
+
     return RequirementItem(
         id=f"REQ-{sequence:03d}",
         title=section.title,
         module=section.module or "默认模块",
         description=truncate(description, 600),
-        priority=infer_priority(f"{section.title}\n{description}"),
+        priority=priority,
         requirement_type=infer_requirement_type(section.title, fields, buckets),
         fields=fields,
         business_rules=dedupe_text(buckets["business_rules"]),
@@ -691,6 +725,12 @@ def extract_inline_fields(lines: list[str], section_title: str) -> list[FieldCon
             default=None,
             description=desc,
         )
+        if field_model.enum_values and field_model.name.endswith("取值"):
+            # 「注册状态取值：待激活/已激活/已冻结」这类写法：去掉尾部"取值"，
+            # 让字段名更贴近可测字段本身（注册状态），导出与展示更清晰。
+            clean_name = field_model.name[: -len("取值")]
+            if clean_name:
+                field_model = field_model.model_copy(update={"name": clean_name, "label": clean_name})
         fields.append(field_model)
     return fields
 

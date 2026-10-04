@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
 
 import { api } from "@/api";
 import type { DocumentSummary } from "@/api";
 import { useAsync } from "@/composables/useAsync";
+import { confirmAction, notice } from "@/composables/useNotice";
 import { formatBytes, formatDateTime } from "@/utils/labels";
 import EmptyState from "@/components/EmptyState.vue";
 import ErrorNote from "@/components/ErrorNote.vue";
@@ -25,6 +25,14 @@ onMounted(() => {
 });
 
 async function parseRequirement(row: DocumentSummary): Promise<void> {
+  if (useLlm.value) {
+    const ok = await confirmAction(
+      `将使用大模型解析 ${row.filename}，耗时随文档长度增长。是否继续？`,
+      "解析需求",
+      "开始解析",
+    );
+    if (!ok) return;
+  }
   parsing.value = row.doc_id;
   try {
     await api.parseRequirement({
@@ -33,12 +41,21 @@ async function parseRequirement(row: DocumentSummary): Promise<void> {
       use_llm: useLlm.value,
       max_items: maxItems.value,
     });
-    ElMessage.success(`已解析 ${row.filename}`);
+    notice.success(`已解析 ${row.filename}，正在打开结构化需求…`);
     await router.push(`/documents/${row.doc_id}/requirement`);
   } catch (err) {
-    ElMessage.error(err instanceof Error ? err.message : "解析失败");
+    notice.error(err, "解析失败，请稍后重试。");
   } finally {
     parsing.value = "";
+  }
+}
+
+async function refresh(): Promise<void> {
+  const list = await documents.run();
+  if (list) {
+    notice.success(`已刷新，共 ${list.length} 份文档。`);
+  } else if (documents.error.value) {
+    notice.error(documents.error.value);
   }
 }
 </script>
@@ -50,7 +67,7 @@ async function parseRequirement(row: DocumentSummary): Promise<void> {
       note="服务端保存的最近 50 份上传文档。解析成结构化需求后，才能看到字段约束、业务流程与异常场景。"
     >
       <template #actions>
-        <el-button @click="documents.run()">刷新</el-button>
+        <el-button @click="refresh">刷新</el-button>
         <el-button type="primary" @click="router.push('/')">上传新文档</el-button>
       </template>
     </PageHead>
@@ -111,6 +128,11 @@ async function parseRequirement(row: DocumentSummary): Promise<void> {
           </template>
         </el-table-column>
         <el-table-column label="解析器" width="104" prop="parser" />
+        <el-table-column label="编码" width="88">
+          <template #default="{ row }">
+            <span class="mono doc__ext">{{ row.encoding || "—" }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="上传时间" width="150">
           <template #default="{ row }">
             <span class="num">{{ formatDateTime(row.created_at) }}</span>
@@ -118,17 +140,26 @@ async function parseRequirement(row: DocumentSummary): Promise<void> {
         </el-table-column>
         <el-table-column label="提示" width="76">
           <template #default="{ row }">
-            <span v-if="row.warnings.length" class="num doc__warn">{{ row.warnings.length }}</span>
+            <span
+              v-if="row.warnings.length"
+              class="num doc__warn"
+              :title="row.warnings.join('\n')"
+            >
+              {{ row.warnings.length }}
+            </span>
             <span v-else class="dim">—</span>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button text @click="previewOf = row">预览</el-button>
+            <el-button text title="查看正文摘录与解析告警" @click="previewOf = row">
+              预览
+            </el-button>
             <el-button
               text
               type="primary"
               :loading="parsing === row.doc_id"
+              title="解析成结构化需求：字段约束 / 流程 / 异常 / 验收标准"
               @click="parseRequirement(row)"
             >
               解析需求
@@ -145,6 +176,7 @@ async function parseRequirement(row: DocumentSummary): Promise<void> {
           <div><dt class="label">解析器</dt><dd>{{ previewOf.parser }}</dd></div>
           <div><dt class="label">字数</dt><dd class="num">{{ previewOf.char_count }}</dd></div>
           <div><dt class="label">行数</dt><dd class="num">{{ previewOf.line_count }}</dd></div>
+          <div><dt class="label">编码</dt><dd class="mono">{{ previewOf.encoding || "—" }}</dd></div>
           <div v-if="previewOf.table_count">
             <dt class="label">表格</dt><dd class="num">{{ previewOf.table_count }}</dd>
           </div>

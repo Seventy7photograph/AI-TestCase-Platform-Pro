@@ -404,3 +404,85 @@
   --el-tag-border-color: var(--rule-strong);
   --el-tag-text-color: var(--ink-2);
 }
+
+/* ============================================================
+   反馈层：顶部墨条 toast / 右下角通知 / 确认弹框
+   成功也走深墨蓝，像给操作盖一枚章；失败换成朱红，警示更直接。
+   ============================================================ */
+.el-message.notice-ink {
+  --el-message-bg-color: var(--cabinet);
+  --el-message-border-color: var(--cabinet-3);
+  --el-message-close-icon-color: var(--cabinet-ink-2);
+  --el-message-close-hover-color: var(--cabinet-ink);
+  border: 1px solid var(--cabinet-3);
+  background: var(--cabinet);
+  box-shadow: var(--el-box-shadow-dark);
+  animation: notice-ink-flash var(--dur) var(--ease);
+}
+
+.el-message.notice-ink .el-message__content {
+  color: var(--cabinet-ink);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.el-message.notice-ink.el-message--error {
+  --el-message-bg-color: #6f1f18;
+  border-color: #8c2a20;
+  background: #6f1f18;
+}
+
+.el-message.notice-ink.el-message--warning {
+  --el-message-bg-color: #6b4f10;
+  border-color: #856318;
+  background: #6b4f10;
+}
+
+.el-message.notice-ink .el-message__icon {
+  color: var(--cabinet-ink);
+}
+
+@keyframes notice-ink-flash {
+  from {
+    opacity: 0;
+    filter: brightness(1.6);
+  }
+  to {
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+.el-notification.notice-ink {
+  --el-notification-border-color: var(--cabinet-3);
+  border: 1px solid var(--cabinet-3);
+  background: var(--cabinet);
+  box-shadow: var(--el-box-shadow-dark);
+}
+
+.el-notification.notice-ink .el-notification__title {
+  color: var(--cabinet-ink);
+}
+
+.el-notification.notice-ink .el-notification__content,
+.el-notification.notice-ink .el-notification__closeBtn {
+  color: var(--cabinet-ink-2);
+}
+
+.el-notification.notice-ink .el-notification__closeBtn:hover {
+  color: var(--cabinet-ink);
+}
+
+.notice-dialog {
+  border: 1px solid var(--card-edge);
+}
+
+.notice-dialog .el-message-box__title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.notice-dialog .el-message-box__message {
+  color: var(--ink-2);
+  line-height: var(--lh-base);
+}

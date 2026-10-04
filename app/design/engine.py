@@ -15,7 +15,7 @@ from app.design.base import DesignContext, DesignStrategy
 from app.design.optimizer import optimize
 from app.design.registry import STRATEGY_REGISTRY, available_methods, build_strategies
 from app.llm.base import LLMProvider
-from app.schemas.common import DesignMethod
+from app.schemas.common import CaseSource, DesignMethod
 from app.schemas.requirement import RequirementDoc, RequirementItem
 from app.schemas.testcase import GenerationMeta, TestCase, TestCaseSuite
 
@@ -89,6 +89,11 @@ class DesignEngine:
                 cases.extend(await self._generate_for_item(item, selected, context))
 
         unique_cases, duplicates = optimize(cases)
+        # 只有真正产出（且未被去重剔除）LLM 用例时才认为"生成阶段用了 LLM"；
+        # 若模型调用失败并降级为规则用例，元数据必须如实显示为规则引擎。
+        llm_case_count = sum(
+            1 for case in unique_cases if case.source in (CaseSource.LLM, CaseSource.HYBRID)
+        )
 
         suite = TestCaseSuite(
             suite_id=new_id("SUITE-"),
@@ -98,7 +103,7 @@ class DesignEngine:
             cases=unique_cases,
             generation_meta=GenerationMeta(
                 methods=[method.value for method in resolved],
-                llm_used=context.llm_call_count > 0,
+                llm_used=llm_case_count > 0,
                 llm_provider=llm.name,
                 llm_model=llm.model,
                 fallback_used=not llm.available,
@@ -143,4 +148,12 @@ class DesignEngine:
                 logger.exception("策略 %s 处理需求 %s 出现未知异常", strategy.name, item.id)
                 continue
             cases.extend(produced)
+        # 设计上下文里的上限语义是「单条需求最多生成的用例数」（跨全部设计方法），
+        # 策略内部只做了单方法截断，这里补一层条目级兜底，避免多方法叠加后超限。
+        limit = context.max_cases_per_item
+        if limit and len(cases) > limit:
+            context.warn(
+                f"需求「{item.title}」的用例数 {len(cases)} 超过单条需求上限 {limit}，已截断，请人工复核遗漏场景。"
+            )
+            cases = cases[:limit]
         return cases

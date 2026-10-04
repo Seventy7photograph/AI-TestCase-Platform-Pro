@@ -2,12 +2,12 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import type { UploadFile } from "element-plus";
-import { ElMessage } from "element-plus";
 import { Download, Document as DocumentIcon, UploadFilled } from "@element-plus/icons-vue";
 
 import { api, saveBlob } from "@/api";
 import type { DocumentSummary, GenerateResult, RequirementItem } from "@/api";
 import { useAsync } from "@/composables/useAsync";
+import { confirmAction, notice } from "@/composables/useNotice";
 import { RESERVED_METHODS, V1_METHODS, formatBytes, formatDuration, methodLabel } from "@/utils/labels";
 import CaseTable from "@/components/CaseTable.vue";
 import ErrorNote from "@/components/ErrorNote.vue";
@@ -96,7 +96,13 @@ async function onFileChange(file: UploadFile): Promise<void> {
   const raw = file.raw;
   if (!raw) return;
   if (raw.size > 20 * 1024 * 1024) {
-    ElMessage.error("文件超过 20 MB 上限，请拆分后再上传。");
+    notice.error("文件超过 20 MB 上限，请拆分后再上传。");
+    return;
+  }
+  if (
+    docId.value &&
+    !(await confirmAction("当前已选择一份文档，重新上传会替换它。是否继续？", "替换已选文档"))
+  ) {
     return;
   }
   uploading.value = true;
@@ -106,12 +112,12 @@ async function onFileChange(file: UploadFile): Promise<void> {
     docId.value = summary.doc_id;
     title.value = summary.filename.replace(/\.[^.]+$/, "");
     if (summary.warnings.length) {
-      ElMessage.warning(`解析完成，但有 ${summary.warnings.length} 条提示，见文档库详情。`);
+      notice.warn(`已解析 ${summary.filename}，但有 ${summary.warnings.length} 条提示，见文档库详情。`);
     } else {
-      ElMessage.success(`已解析 ${summary.filename}，共 ${summary.char_count} 字。`);
+      notice.success(`已解析 ${summary.filename}，共 ${summary.char_count} 字。`);
     }
   } catch (err) {
-    ElMessage.error(err instanceof Error ? err.message : "上传失败");
+    notice.error(err, "上传失败，请确认文件格式与大小后重试。");
   } finally {
     uploading.value = false;
   }
@@ -119,6 +125,14 @@ async function onFileChange(file: UploadFile): Promise<void> {
 
 async function runGenerate(): Promise<void> {
   if (!canGenerate.value) return;
+  if (useLlm.value || useLlmInDesign.value) {
+    const ok = await confirmAction(
+      `将解析最多 ${maxItems.value} 条需求，并调用大模型生成用例，耗时随条目数增长。是否继续？`,
+      "开始生成用例",
+      "开始生成",
+    );
+    if (!ok) return;
+  }
   const payload = {
     doc_id: mode.value === "upload" ? docId.value : null,
     text: mode.value === "upload" ? null : text.value,
@@ -130,17 +144,26 @@ async function runGenerate(): Promise<void> {
   };
   const output = await generate.run(payload);
   if (output) {
-    ElMessage.success(
-      `生成完成：共 ${output.suite.stats.total} 条用例，去重剔除 ${output.suite.stats.duplicate_removed} 条。`,
+    const covered = Object.keys(output.suite.stats.requirement_coverage ?? {}).length;
+    notice.done(
+      "用例生成完成",
+      `共 ${output.suite.stats.total} 条用例，去重剔除 ${output.suite.stats.duplicate_removed} 条，覆盖 ${covered} 条需求。`,
     );
+  } else if (generate.error.value) {
+    notice.error(generate.error.value);
   }
 }
 
 async function download(format: "excel" | "json"): Promise<void> {
   const suiteId = result.value?.suite.suite_id;
   if (!suiteId) return;
-  const file = await api.exportSuite(suiteId, format);
-  saveBlob(file.blob, file.filename || `${suiteId}.${format === "excel" ? "xlsx" : "json"}`);
+  try {
+    const file = await api.exportSuite(suiteId, format);
+    saveBlob(file.blob, file.filename || `${suiteId}.${format === "excel" ? "xlsx" : "json"}`);
+    notice.success(`已导出 ${format === "excel" ? "Excel" : "JSON"} 文件。`);
+  } catch (err) {
+    notice.error(err, "导出失败，请稍后重试。");
+  }
 }
 </script>
 
@@ -160,6 +183,7 @@ async function download(format: "excel" | "json"): Promise<void> {
               type="button"
               class="switch__opt"
               :class="{ 'switch__opt--on': mode === 'text' }"
+              title="直接粘贴需求正文，适合快速验证"
               @click="toggleMode('text')"
             >
               粘贴文本
@@ -168,6 +192,7 @@ async function download(format: "excel" | "json"): Promise<void> {
               type="button"
               class="switch__opt"
               :class="{ 'switch__opt--on': mode === 'upload' }"
+              title="上传 docx / pdf / txt / md / csv / json，由服务端抽取正文"
               @click="toggleMode('upload')"
             >
               上传文档
@@ -214,7 +239,8 @@ async function download(format: "excel" | "json"): Promise<void> {
                 <p class="docbox__name">{{ docInfo.filename }}</p>
                 <p class="docbox__meta mono">
                   {{ docInfo.doc_id }} · {{ formatBytes(docInfo.size_bytes) }} ·
-                  {{ docInfo.char_count }} 字 · 解析器 {{ docInfo.parser }}
+                  {{ docInfo.char_count }} 字 · 解析器 {{ docInfo.parser }} ·
+                  编码 {{ docInfo.encoding || "—" }}
                 </p>
               </div>
             </div>
@@ -239,6 +265,7 @@ async function download(format: "excel" | "json"): Promise<void> {
                 :key="method"
                 :value="method"
                 disabled
+                title="该设计方法计划在 V2.0 提供，当前版本调用会返回 501"
               >
                 {{ methodLabel(method) }}
                 <span class="reserved">V2 预留</span>
@@ -278,17 +305,25 @@ async function download(format: "excel" | "json"): Promise<void> {
             </label>
           </div>
 
-          <el-button
-            type="primary"
-            size="large"
-            :loading="generate.loading.value"
-            :disabled="!canGenerate"
-            @click="runGenerate"
+          <el-tooltip
+            :disabled="canGenerate"
+            content="请至少选择一种设计方法，并填入需求正文或选择已上传文档"
+            placement="top"
           >
-            {{ generate.loading.value ? "正在生成…" : "一键生成用例" }}
-          </el-button>
+            <span class="gen__wrap">
+              <el-button
+                type="primary"
+                size="large"
+                :loading="generate.loading.value"
+                :disabled="!canGenerate"
+                @click="runGenerate"
+              >
+                {{ generate.loading.value ? "正在生成…" : "一键生成用例" }}
+              </el-button>
+            </span>
+          </el-tooltip>
           <p v-if="methodError" class="hint hint--bad">{{ methodError }}</p>
-          <p v-else-if="!canGenerate" class="hint dim">
+          <p v-else-if="!canGenerate" class="hint hint--bad">
             {{ mode === "upload" ? "请先上传并解析一份文档。" : "请先粘贴需求正文。" }}
           </p>
         </div>
@@ -312,11 +347,17 @@ async function download(format: "excel" | "json"): Promise<void> {
           type="primary"
           :icon="Download"
           :loading="exportExcel.loading.value"
+          title="导出为 Excel：用例明细 / 统计 / 需求追溯三个工作表"
           @click="exportExcel.run"
         >
           导出 Excel
         </el-button>
-        <el-button :icon="Download" :loading="exportJson.loading.value" @click="exportJson.run">
+        <el-button
+          :icon="Download"
+          :loading="exportJson.loading.value"
+          title="导出为 JSON，便于二次处理或对接其它系统"
+          @click="exportJson.run"
+        >
           导出 JSON
         </el-button>
         <el-button @click="router.push(`/suites/${result.suite.suite_id}`)">打开用例集详情</el-button>
@@ -331,8 +372,6 @@ async function download(format: "excel" | "json"): Promise<void> {
         :doc-id="result.requirement_doc.doc_id"
       />
 
-      <ErrorNote v-if="exportExcel.error.value" :error="exportExcel.error.value" />
-      <ErrorNote v-if="exportJson.error.value" :error="exportJson.error.value" />
     </template>
   </div>
 </template>
@@ -488,6 +527,14 @@ async function download(format: "excel" | "json"): Promise<void> {
 
 .hint--bad {
   color: var(--danger);
+}
+
+.gen__wrap {
+  display: block;
+}
+
+.gen__wrap :deep(.el-button) {
+  width: 100%;
 }
 
 .warns {

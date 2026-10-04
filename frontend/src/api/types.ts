@@ -112,6 +112,8 @@ export interface SuiteStats {
   total: number;
   duplicate_removed: number;
   by_method: Record<string, number>;
+  /** 合并用例按「覆盖到的全部方法」重新计数，避免跨方法合并后被少算。 */
+  by_covered_method: Record<string, number>;
   by_type: Record<string, number>;
   by_priority: Record<string, number>;
   requirement_coverage: Record<string, number>;
@@ -146,6 +148,7 @@ export interface DocumentSummary {
   size_bytes: number;
   char_count: number;
   line_count: number;
+  encoding: string;
   parser: string;
   page_count: number | null;
   table_count: number;

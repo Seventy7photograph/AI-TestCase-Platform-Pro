@@ -251,3 +251,27 @@ def test_persisted_suite_keeps_parse_snapshot(client) -> None:
     ).json()["data"]["suite"]
     detail = client.get(f"{API}/testcases/{suite['suite_id']}").json()["data"]
     assert detail["parse_meta"]["llm_used"] is True
+
+
+def test_generate_from_parsed_respects_methods_query(client) -> None:
+    """设计方法以逗号分隔 query 传入时必须生效。
+
+    回归：该参数曾被 FastAPI 当成 requestBody，导致前端 ?methods=boundary 被静默忽略，
+    实际总是按全部方法生成。
+    """
+    doc_id = _upload(client).json()["data"]["doc_id"]
+    client.post(
+        f"{API}/requirements/parse", json={"doc_id": doc_id, "use_llm": False, "max_items": 5}
+    )
+
+    single = client.post(
+        f"{API}/requirements/{doc_id}/testcases?methods=boundary&use_llm_in_design=false"
+    )
+    assert single.status_code == 200, single.text
+    assert single.json()["data"]["methods"] == ["boundary"]
+
+    multi = client.post(
+        f"{API}/requirements/{doc_id}/testcases?methods=boundary,scenario"
+    )
+    assert multi.status_code == 200, multi.text
+    assert multi.json()["data"]["methods"] == ["boundary", "scenario"]

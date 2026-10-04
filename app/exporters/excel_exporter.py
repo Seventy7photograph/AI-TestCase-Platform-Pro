@@ -174,7 +174,11 @@ class ExcelExporter(Exporter):
         self._write_kv_table(sheet, "总体统计", rows, start_row=1)
 
         row = len(rows) + 4
-        row = self._write_mapping(sheet, "按设计方法", suite.stats.by_method, row)
+        row = self._write_mapping(sheet, "按设计方法（主）", suite.stats.by_method, row)
+        if suite.stats.by_covered_method:
+            row = self._write_mapping(
+                sheet, "按设计方法（含合并覆盖）", suite.stats.by_covered_method, row + 1
+            )
         row = self._write_mapping(sheet, "按用例类型", suite.stats.by_type, row + 1)
         self._write_mapping(sheet, "按优先级", suite.stats.by_priority, row + 1)
 

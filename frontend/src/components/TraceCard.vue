@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { ElMessage } from "element-plus";
 
 import type { RequirementItem, TestCase } from "@/api";
+import { notice } from "@/composables/useNotice";
 import { caseToPlainText, methodLabel } from "@/utils/labels";
 
 const props = defineProps<{
@@ -39,9 +39,9 @@ const dataRows = computed(() =>
 async function copyCase(): Promise<void> {
   try {
     await navigator.clipboard.writeText(caseToPlainText(props.caseItem));
-    ElMessage.success("已复制用例文本，可直接粘贴到禅道 / Jira");
+    notice.success("已复制用例文本，可直接粘贴到禅道 / Jira");
   } catch {
-    ElMessage.error("浏览器拒绝了剪贴板访问，请手动选中复制");
+    notice.error("浏览器拒绝了剪贴板访问，请手动选中复制。");
   }
 }
 </script>
@@ -66,7 +66,12 @@ async function copyCase(): Promise<void> {
         </template>
         <span class="trace-card__methods">{{ coveredMethods }}</span>
       </div>
-      <button type="button" class="trace-card__copy" @click="copyCase">
+      <button
+        type="button"
+        class="trace-card__copy"
+        title="复制为纯文本，便于粘贴到测试管理平台"
+        @click="copyCase"
+      >
         复制用例
       </button>
     </div>

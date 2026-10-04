@@ -24,17 +24,33 @@ const statusTone = computed(() => {
   if (!health.reachable) return "bad";
   return health.llmReady ? "good" : "warn";
 });
+
+const statusHint = computed(() => {
+  if (health.loading && !health.info) return "正在请求 /api/v1/health";
+  if (!health.reachable) {
+    return health.error || "无法连接后端服务，请确认已执行 python run.py";
+  }
+  return health.llmReady
+    ? `已连接 · 推理引擎 ${health.llmLabel}`
+    : `已连接，但未启用大模型：${health.info?.llm_degraded_reason || "链路自动降级为规则引擎"}`;
+});
 </script>
 
 <template>
   <header class="bar">
     <div class="bar__left">
       <span class="bar__endpoint mono">/api/v1</span>
-      <span class="bar__status" :class="`bar__status--${statusTone}`">
+      <span
+        class="bar__status"
+        :class="`bar__status--${statusTone}`"
+        :title="statusHint"
+      >
         <span class="bar__dot" aria-hidden="true"></span>
         {{ statusText }}
       </span>
-      <span v-if="health.reachable" class="bar__llm">{{ health.llmLabel }}</span>
+      <span v-if="health.reachable" class="bar__llm" :title="health.llmLabel">
+        {{ health.llmLabel }}
+      </span>
     </div>
 
     <div class="bar__right">
@@ -52,6 +68,7 @@ const statusTone = computed(() => {
           class="segmented__opt"
           :class="{ 'segmented__opt--on': density === level.value }"
           :aria-checked="density === level.value"
+          :title="`切换为${level.label}表格密度`"
           @click="setDensity(level.value)"
         >
           {{ level.label }}

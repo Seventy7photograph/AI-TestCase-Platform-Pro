@@ -4,7 +4,9 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.1.0] - 2026-10-05
+
+大模型配置支持界面切换（保留 `.env` 基线），并集中修复 v1.0 体验反馈中的缺陷。
 
 ### Fixed
 
@@ -24,6 +26,8 @@
 
 ### Changed
 
+- **版本号**：版本以代码 `app/__init__.py` 为唯一来源（v1.1.0），`.env` 的 `APP_VERSION`
+  不再覆盖它，避免旧配置文件让 `/health` 显示过期版本。
 - **大模型配置**：改为「分层配置」——`.env` 作为基线（启动即用、无人值守可用），
   前端新增「运行状态 → 大模型配置」面板做运行时覆盖，优先级
   `界面覆盖 > .env > 代码默认值`；保存后无需重启即生效，并可一键「恢复 .env 配置」。
@@ -80,5 +84,6 @@
 - 使用 JSON 文件存储，不适合多实例并发部署。
 - PDF 仅支持文本型，暂不做 OCR。
 
-[Unreleased]: https://github.com/Seventy7photograph/AI-TestCase-Platform-Pro/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Seventy7photograph/AI-TestCase-Platform-Pro/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Seventy7photograph/AI-TestCase-Platform-Pro/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Seventy7photograph/AI-TestCase-Platform-Pro/releases/tag/v1.0.0

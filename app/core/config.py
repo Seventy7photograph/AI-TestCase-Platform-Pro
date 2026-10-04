@@ -12,6 +12,8 @@ from typing import Literal
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app import __version__
+
 # 项目根目录（app/core/config.py -> app/core -> app -> 项目根）
 PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
 
@@ -31,7 +33,6 @@ class Settings(BaseSettings):
 
     # ---------- 应用 ----------
     app_name: str = "AI-TestCase-Platform-Pro"
-    app_version: str = "1.0.0"
     api_prefix: str = "/api/v1"
     debug: bool = False
     log_level: str = "INFO"
@@ -61,6 +62,11 @@ class Settings(BaseSettings):
         return path if path.is_absolute() else (PROJECT_ROOT / path).resolve()
 
     # ---------- 派生路径 ----------
+    @property
+    def app_version(self) -> str:
+        """版本号以代码为准（app/__init__.py），避免旧 .env 里的 APP_VERSION 覆盖出错误版本。"""
+        return __version__
+
     @property
     def upload_dir(self) -> Path:
         return self.storage_dir / "uploads"

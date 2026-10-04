@@ -1,11 +1,11 @@
-# AI 测试用例生成助手 V1.0
+# AI 测试用例生成助手 v1.1.0
 
 [![CI](https://github.com/Seventy7photograph/AI-TestCase-Platform-Pro/actions/workflows/ci.yml/badge.svg)](https://github.com/Seventy7photograph/AI-TestCase-Platform-Pro/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg)](https://fastapi.tiangolo.com/)
 [![Vue](https://img.shields.io/badge/Vue-3-42b883.svg)](https://vuejs.org/)
-[![Version](https://img.shields.io/badge/version-v1.0.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v1.1.0-blue.svg)](CHANGELOG.md)
 
 > 基于 **Python + FastAPI** 的测试用例生成服务：把需求文档一键转换为结构化需求模型，
 > 再经 **等价类划分 / 边界值分析 / 场景法** 三类设计方法生成测试用例，最后导出 Excel。
@@ -17,7 +17,7 @@
 
 ---
 
-## 一、V1.0 能力范围
+## 一、能力范围
 
 **已实现（端到端可跑通）**
 
@@ -429,13 +429,22 @@ python -m pytest --cov=app    # 需要 pytest-cov
 
 ---
 
-## 九、V1.0 功能自测清单
+## 九、功能自测清单
 
 **环境与启动**
 - [ ] `pip install -r requirements.txt` 成功
 - [ ] 复制 `.env.example` 为 `.env` 后 `python run.py` 启动无报错
 - [ ] 打开 http://127.0.0.1:8000/docs 可见全部接口
 - [ ] `python -m pytest` 全部通过
+
+**大模型配置（v1.1.0 新增）**
+- [ ] `/health` 返回 `llm_source=env`，表示默认使用 `.env` 基线
+- [ ] 「运行状态 → 大模型配置」能读到当前厂商 / 模型与掩码 Key（不回显明文）
+- [ ] 切换厂商后自动带出默认模型 / 端点，可「拉取模型」或直接输入自定义模型名
+- [ ] 「测试连接」返回 `ok=true` 与耗时；Key / 端点错误时给出可读失败原因
+- [ ] 保存后 `/health` 的 `llm_source` 变为 `runtime`，无需重启即可用于解析 / 生成
+- [ ] 「恢复 .env 配置」后 `llm_source` 回到 `env`，且覆盖文件被删除
+- [ ] 缺少必填项（如 OpenAI 兼容端点未填 base_url）时红色提示并禁用保存
 
 **文档上传与解析**
 - [ ] 上传 `.md` / `.txt` 成功并返回 `doc_id` 与预览

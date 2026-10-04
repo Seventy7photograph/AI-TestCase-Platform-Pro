@@ -41,7 +41,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 logger = get_logger(__name__)
 
 DESCRIPTION = """
-基于 Python + FastAPI 的 AI 测试用例生成助手（V1.0）。
+基于 Python + FastAPI 的 AI 测试用例生成助手（v1.1.0）。
 
 核心链路：需求文档上传 -> 需求结构化解析 -> 测试设计引擎（等价类/边界值/场景法）-> 用例优化去重 -> Excel 导出。
 

@@ -15,7 +15,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # 项目根目录（app/core/config.py -> app/core -> app -> 项目根）
 PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
 
-LLMProviderName = Literal["deepseek", "openai_compatible", "fake"]
+# none = 显式选择「纯规则引擎」，与「未配置 Key 自动降级」区分开，便于界面表达意图。
+LLMProviderName = Literal["deepseek", "openai_compatible", "fake", "none"]
 
 
 class Settings(BaseSettings):
@@ -80,6 +81,10 @@ class Settings(BaseSettings):
         """确保运行时目录存在（幂等）。"""
         for path in (self.storage_dir, self.upload_dir, self.export_dir, self.data_dir):
             path.mkdir(parents=True, exist_ok=True)
+
+    def with_llm_overrides(self, overrides: dict[str, object]) -> "Settings":
+        """基于当前配置生成一份带 LLM 覆盖的副本（不改动全局单例）。"""
+        return self.model_copy(update=dict(overrides))
 
 
 @lru_cache(maxsize=1)

@@ -1,4 +1,4 @@
-import { downloadFile, get, post, upload } from "./client";
+import { del, downloadFile, get, post, put, upload } from "./client";
 
 import type {
   DocumentSummary,
@@ -6,6 +6,10 @@ import type {
   GenerateResult,
   HealthInfo,
   IntegrationInfo,
+  LLMConfigInfo,
+  LLMConfigPayload,
+  LLMModelList,
+  LLMTestResult,
   MethodInfo,
   RequirementDoc,
   TestCaseSuite,
@@ -24,6 +28,15 @@ export interface GeneratePayload {
 export const api = {
   health: () => get<HealthInfo>("/health"),
   integrations: () => get<IntegrationInfo[]>("/integrations"),
+
+  llmConfig: () => get<LLMConfigInfo>("/llm/config"),
+  saveLlmConfig: (payload: LLMConfigPayload) =>
+    put<LLMConfigInfo>("/llm/config", payload),
+  resetLlmConfig: () => del<LLMConfigInfo>("/llm/config"),
+  testLlmConfig: (payload: LLMConfigPayload) =>
+    post<LLMTestResult>("/llm/config/test", payload),
+  llmModels: (provider?: string) =>
+    get<LLMModelList>("/llm/models", provider ? { provider } : undefined),
 
   methods: () => get<MethodInfo[]>("/testcases/methods"),
   exportFormats: () => get<ExportFormatInfo[]>("/export/formats"),

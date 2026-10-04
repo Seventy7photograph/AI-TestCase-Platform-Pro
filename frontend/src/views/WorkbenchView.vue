@@ -8,6 +8,7 @@ import { api, saveBlob } from "@/api";
 import type { DocumentSummary, GenerateResult, RequirementItem } from "@/api";
 import { useAsync } from "@/composables/useAsync";
 import { confirmAction, notice } from "@/composables/useNotice";
+import { useHealthStore } from "@/stores/health";
 import { RESERVED_METHODS, V1_METHODS, formatBytes, formatDuration, methodLabel } from "@/utils/labels";
 import CaseTable from "@/components/CaseTable.vue";
 import ErrorNote from "@/components/ErrorNote.vue";
@@ -16,6 +17,7 @@ import StatStrip from "@/components/StatStrip.vue";
 import type { StatItem } from "@/components/StatStrip.vue";
 
 const router = useRouter();
+const health = useHealthStore();
 
 const mode = ref<"text" | "upload">("text");
 const text = ref("");
@@ -304,6 +306,13 @@ async function download(format: "excel" | "json"): Promise<void> {
               </span>
             </label>
           </div>
+
+          <p class="hint dim">
+            当前模型：{{ health.llmLabel }}（{{ health.llmSourceLabel }}）·
+            <router-link to="/capability" title="前往「运行状态」，切换厂商 / 模型 / API Key">
+              去切换厂商 / 模型
+            </router-link>
+          </p>
 
           <el-tooltip
             :disabled="canGenerate"

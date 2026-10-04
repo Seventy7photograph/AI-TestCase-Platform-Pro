@@ -157,7 +157,7 @@ Copy-Item .env.example .env
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `LLM_PROVIDER` | `deepseek` | `deepseek` / `openai_compatible` / `fake` |
+| `LLM_PROVIDER` | `deepseek` | `deepseek` / `openai_compatible` / `fake` / `none`（纯规则引擎） |
 | `LLM_API_KEY` | 空 | **必须通过环境变量注入，禁止硬编码**；为空时自动降级规则引擎 |
 | `LLM_BASE_URL` | `https://api.deepseek.com` | OpenAI 兼容端点 |
 | `LLM_MODEL` | `deepseek-chat` | 也可填 `deepseek-reasoner` |
@@ -166,6 +166,8 @@ Copy-Item .env.example .env
 | `MAX_CASES_PER_REQUIREMENT` | `60` | 单条需求用例数上限（防边界值爆炸） |
 
 > **不配置 `LLM_API_KEY` 也能完整跑通**：系统会记录降级原因，并在响应告警与 Excel「生成信息」页中可见。
+>
+> `.env` 是**基线配置**（启动即用、无人值守也能跑）；前端「运行状态 → 大模型配置」可在此基础上做**运行时覆盖**，两者不冲突，详见下文。
 
 ### 4. 启动
 
@@ -352,6 +354,19 @@ class LLMProvider(ABC):
 
 接入 Qwen：实现子类 + `PROVIDER_REGISTRY.register("qwen", ...)`，
 再把 `.env` 的 `LLM_PROVIDER` 改成 `qwen` 即可 —— 业务层零改动。
+
+**运行时切换（界面，无需重启）**：前端「运行状态 → 大模型配置」可切换厂商 / 模型 / 端点 / Key /
+温度等，并提供「测试连接」与「拉取模型」；保存后写入 `storage/data/llm_config.json`（已 gitignore，
+密钥不出本机、接口只回显掩码）。优先级为 `界面覆盖 > .env > 代码默认值`，
+「恢复 .env 配置」可随时回到基线。
+
+| 接口 | 说明 |
+| --- | --- |
+| `GET /api/v1/llm/config` | 读取生效配置（含掩码 Key）与候选厂商 / 模型目录 |
+| `PUT /api/v1/llm/config` | 保存界面覆盖，立即对后续解析 / 生成生效 |
+| `DELETE /api/v1/llm/config` | 清除界面覆盖，恢复 `.env` 基线 |
+| `POST /api/v1/llm/config/test` | 用当前配置或未保存的表单值做一次真实连通性测试 |
+| `GET /api/v1/llm/models` | 拉取候选模型（厂商 `/models`，失败回退内置目录） |
 
 ### 4. 外部集成（`app/integrations/`，V3.0）
 

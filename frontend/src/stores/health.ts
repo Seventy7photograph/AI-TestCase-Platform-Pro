@@ -31,6 +31,9 @@ export const useHealthStore = defineStore("health", () => {
 
   const reachable = computed(() => info.value !== null);
   const llmReady = computed(() => info.value?.llm_available === true);
+  const llmSourceLabel = computed(() =>
+    info.value?.llm_source === "runtime" ? "界面覆盖" : ".env 基线",
+  );
   const llmLabel = computed(() => {
     if (!info.value) return "未连接";
     if (info.value.llm_available) {
@@ -39,5 +42,5 @@ export const useHealthStore = defineStore("health", () => {
     return "规则引擎（未启用大模型）";
   });
 
-  return { info, integrations, loading, error, load, reachable, llmReady, llmLabel };
+  return { info, integrations, loading, error, load, reachable, llmReady, llmLabel, llmSourceLabel };
 });

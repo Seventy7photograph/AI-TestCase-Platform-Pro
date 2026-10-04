@@ -77,8 +77,10 @@ class HealthInfo(BaseModel):
     status: str = "ok"
     llm_provider: str
     llm_model: str = ""
+    llm_base_url: str = ""
     llm_available: bool = False
     llm_degraded_reason: str = ""
+    llm_source: str = Field(default="env", description="env=来自 .env 基线；runtime=被界面覆盖")
     methods: list[MethodInfo] = Field(default_factory=list)
     export_formats: list[ExportFormatInfo] = Field(default_factory=list)
     supported_extensions: list[str] = Field(default_factory=list)

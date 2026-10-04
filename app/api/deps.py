@@ -9,10 +9,10 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from app.core.config import Settings, get_settings
+from app.core.config import Settings
 from app.design.engine import DesignEngine
 from app.llm.base import LLMProvider
-from app.llm.factory import get_llm_provider
+from app.llm.factory import get_effective_settings, get_llm_provider
 from app.repository import Repository, get_repository
 from app.services.document_service import DocumentService
 from app.services.export_service import ExportService
@@ -21,7 +21,8 @@ from app.services.requirement_service import RequirementService
 
 
 def settings_dep() -> Settings:
-    return get_settings()
+    """返回「合并了界面覆盖」的生效配置（存储 / 设计引擎等非 LLM 项不受影响）。"""
+    return get_effective_settings()
 
 
 def repository_dep() -> Repository:

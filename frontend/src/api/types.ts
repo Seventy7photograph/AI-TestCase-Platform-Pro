@@ -177,11 +177,78 @@ export interface HealthInfo {
   status: string;
   llm_provider: string;
   llm_model: string;
+  llm_base_url: string;
   llm_available: boolean;
   llm_degraded_reason: string;
+  /** env=来自 .env 基线；runtime=被「大模型配置」界面覆盖 */
+  llm_source: string;
   methods: MethodInfo[];
   export_formats: ExportFormatInfo[];
   supported_extensions: string[];
+}
+
+export interface LLMModelOption {
+  value: string;
+  label: string;
+  base_url: string;
+}
+
+export interface LLMProviderOption {
+  name: string;
+  label: string;
+  description: string;
+  requires_key: boolean;
+  requires_base_url: boolean;
+  allow_custom_model: boolean;
+  default_base_url: string;
+  default_model: string;
+  models: LLMModelOption[];
+}
+
+export interface LLMConfigInfo {
+  provider: string;
+  model: string;
+  base_url: string;
+  api_key_configured: boolean;
+  api_key_masked: string;
+  timeout: number;
+  max_retries: number;
+  temperature: number;
+  max_tokens: number;
+  available: boolean;
+  degraded_reason: string;
+  /** env=来自 .env 基线；runtime=被界面覆盖 */
+  source: string;
+  overridden_fields: string[];
+  env_defaults: Record<string, unknown>;
+  providers: LLMProviderOption[];
+}
+
+export interface LLMConfigPayload {
+  provider?: string;
+  model?: string;
+  base_url?: string;
+  /** 省略=沿用现有 Key；空字符串=清除已保存的 Key */
+  api_key?: string;
+  timeout?: number;
+  max_retries?: number;
+  temperature?: number;
+  max_tokens?: number;
+}
+
+export interface LLMTestResult {
+  ok: boolean;
+  provider: string;
+  model: string;
+  elapsed_ms: number;
+  message: string;
+  reply: string;
+}
+
+export interface LLMModelList {
+  source: string;
+  message: string;
+  models: LLMModelOption[];
 }
 
 export interface IntegrationInfo {

@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import documents, export, health, pipeline, requirements, testcases
+from app.api.routes import documents, export, health, llm, pipeline, requirements, testcases
 from app.core.config import Settings, get_settings
 from app.core.exceptions import AppError
 from app.core.logging import get_logger, setup_logging
@@ -132,7 +132,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         expose_headers=["Content-Disposition", "X-Export-Filename"],
     )
 
-    for module in (health, documents, requirements, testcases, export, pipeline):
+    for module in (health, llm, documents, requirements, testcases, export, pipeline):
         app.include_router(module.router, prefix=settings.api_prefix)
 
     register_exception_handlers(app)

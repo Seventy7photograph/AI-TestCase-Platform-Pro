@@ -86,6 +86,24 @@ export async function post<T>(
   }
 }
 
+export async function put<T>(url: string, body?: unknown): Promise<T> {
+  try {
+    const res = await http.put<ApiResponse<T>>(url, body);
+    return unwrap(res.data);
+  } catch (err) {
+    throw normalize(err);
+  }
+}
+
+export async function del<T>(url: string): Promise<T> {
+  try {
+    const res = await http.delete<ApiResponse<T>>(url);
+    return unwrap(res.data);
+  } catch (err) {
+    throw normalize(err);
+  }
+}
+
 export async function upload<T>(url: string, file: File): Promise<T> {
   const form = new FormData();
   form.append("file", file, file.name);

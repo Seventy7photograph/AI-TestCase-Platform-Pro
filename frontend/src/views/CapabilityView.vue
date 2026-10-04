@@ -4,6 +4,7 @@ import { computed, onMounted } from "vue";
 import { notice } from "@/composables/useNotice";
 import { useHealthStore } from "@/stores/health";
 import ErrorNote from "@/components/ErrorNote.vue";
+import LlmConfigPanel from "@/components/LlmConfigPanel.vue";
 import PageHead from "@/components/PageHead.vue";
 import StatStrip from "@/components/StatStrip.vue";
 import type { StatItem } from "@/components/StatStrip.vue";
@@ -90,6 +91,8 @@ async function refresh(): Promise<void> {
 
     <template v-else-if="info">
       <StatStrip :items="statItems" />
+
+      <LlmConfigPanel />
 
       <div class="grid grid--2">
         <section class="card">
